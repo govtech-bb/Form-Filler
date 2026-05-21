@@ -113,19 +113,10 @@ async function runFill(tabId: number): Promise<FillResult> {
   const instructions: FillInstruction[] = [];
   const aiNeeded: FieldMeta[] = [];
 
-  // 2. Generate values via rules engine / type logic
+  // 2. Generate values — generateValue handles pattern validation internally
   for (const field of fields) {
     const value = generateValue(field);
     if (value !== null) {
-      // Validate string values against the field's pattern attribute
-      if (field.pattern && typeof value === 'string') {
-        try {
-          if (!new RegExp(`^(?:${field.pattern})$`).test(value)) {
-            aiNeeded.push(field);
-            continue;
-          }
-        } catch { /* invalid regex — skip pattern check */ }
-      }
       instructions.push({ fieldId: field.id, value });
     } else {
       aiNeeded.push(field);
