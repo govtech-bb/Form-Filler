@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Form Filler",
+  "version": "1.0.0",
+  "description": "Instantly fill form fields with realistic fake data for testing",
+  "permissions": ["activeTab", "storage", "tabs"],
+  "host_permissions": ["https://api.anthropic.com/*"],
+  "action": {
+    "default_popup": "src/popup/index.html"
+  },
+  "background": {
+    "service_worker": "src/background/index.ts",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content/index.ts"]
+    }
+  ],
+  "commands": {
+    "fill-form": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+F",
+        "mac": "Command+Shift+F"
+      },
+      "description": "Fill all form fields on the current page"
+    }
+  }
+}
