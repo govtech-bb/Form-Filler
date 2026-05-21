@@ -1,11 +1,20 @@
 import {
+  FillResult,
   MessageFromBackground,
   MessageToBackground,
   StoredSettings,
 } from '../shared/types';
 
 function sendToBackground(msg: MessageToBackground): Promise<MessageFromBackground> {
-  return new Promise((resolve) => chrome.runtime.sendMessage(msg, resolve));
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(msg, (response) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+      } else {
+        resolve(response);
+      }
+    });
+  });
 }
 
 function renderSettings(settings: StoredSettings) {
@@ -23,18 +32,18 @@ function renderSettings(settings: StoredSettings) {
   }
 }
 
-function renderLastFill(settings: StoredSettings) {
+function renderLastFill(result: FillResult | undefined) {
   const box = document.getElementById('status-box')!;
   const text = document.getElementById('status-text')!;
 
-  if (!settings.lastFillResult) {
+  if (!result) {
     text.textContent = 'No fills yet';
     text.className = 'status-text';
     box.className = 'status-box';
     return;
   }
 
-  const { fieldsFilled, aiFieldCount, timestamp } = settings.lastFillResult;
+  const { fieldsFilled, aiFieldCount, timestamp } = result;
   const ago = Math.round((Date.now() - timestamp) / 1000);
   const timeStr = ago < 60 ? 'just now' : ago < 3600 ? `${Math.floor(ago / 60)}m ago` : `${Math.floor(ago / 3600)}h ago`;
   const aiStr = aiFieldCount > 0 ? ` (${aiFieldCount} via AI)` : '';
@@ -52,7 +61,7 @@ async function init() {
   const response = await sendToBackground({ type: 'GET_SETTINGS' });
   if (response?.type === 'SETTINGS') {
     renderSettings(response.settings);
-    renderLastFill(response.settings);
+    renderLastFill(response.settings.lastFillResult);
   }
 
   // Fill button
@@ -61,21 +70,28 @@ async function init() {
     btn.disabled = true;
     btn.textContent = 'Filling…';
 
-    const res = await sendToBackground({ type: 'FILL_REQUEST' });
+    try {
+      const res = await sendToBackground({ type: 'FILL_REQUEST' });
 
-    if (res?.type === 'FILL_COMPLETE') {
-      renderLastFill({ claudeApiKey: '', lastFillResult: res.result });
-      const box = document.getElementById('status-box')!;
-      box.className = 'status-box success';
-    } else if (res?.type === 'FILL_ERROR') {
+      if (res?.type === 'FILL_COMPLETE') {
+        renderLastFill(res.result);
+        const box = document.getElementById('status-box')!;
+        box.className = 'status-box success';
+      } else if (res?.type === 'FILL_ERROR') {
+        const text = document.getElementById('status-text')!;
+        text.textContent = res.error;
+        text.className = 'status-text err';
+        document.getElementById('status-box')!.className = 'status-box error';
+      }
+    } catch (e) {
       const text = document.getElementById('status-text')!;
-      text.textContent = res.error;
+      text.textContent = String(e);
       text.className = 'status-text err';
       document.getElementById('status-box')!.className = 'status-box error';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '⚡ Fill All Fields';
     }
-
-    btn.disabled = false;
-    btn.textContent = '⚡ Fill All Fields';
   });
 
   // Open settings
@@ -85,16 +101,26 @@ async function init() {
   // Save API key
   document.getElementById('btn-save-key')!.addEventListener('click', async () => {
     const key = (document.getElementById('api-key-input') as HTMLInputElement).value.trim();
-    const res = await sendToBackground({ type: 'SAVE_API_KEY', key });
-    if (res?.type === 'SETTINGS') renderSettings(res.settings);
-    const feedback = document.getElementById('save-feedback')!;
-    feedback.style.display = 'block';
-    setTimeout(() => (feedback.style.display = 'none'), 2000);
+    try {
+      const res = await sendToBackground({ type: 'SAVE_API_KEY', key });
+      if (res?.type === 'SETTINGS') {
+        renderSettings(res.settings);
+        const feedback = document.getElementById('save-feedback')!;
+        feedback.style.display = 'block';
+        setTimeout(() => (feedback.style.display = 'none'), 2000);
+      }
+    } catch (e) {
+      console.error('[FormFiller] Save API key error:', e);
+    }
   });
 
   // Clear AI cache
   document.getElementById('btn-clear-cache')!.addEventListener('click', async () => {
-    await sendToBackground({ type: 'CLEAR_AI_CACHE' });
+    try {
+      await sendToBackground({ type: 'CLEAR_AI_CACHE' });
+    } catch (e) {
+      console.error('[FormFiller] Clear cache error:', e);
+    }
     const btn = document.getElementById('btn-clear-cache')!;
     btn.textContent = '✓ Cache cleared';
     setTimeout(() => (btn.textContent = '🗑 Clear AI Cache'), 2000);
