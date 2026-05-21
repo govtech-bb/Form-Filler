@@ -76,12 +76,26 @@ async function getAiValues(
   return result;
 }
 
+async function ensureContentScript(tabId: number): Promise<void> {
+  // Inject the content script into tabs that were open before the extension loaded.
+  // Read the actual filename from the built manifest so the hash is always correct.
+  const files = chrome.runtime.getManifest().content_scripts?.[0]?.js ?? [];
+  if (files.length === 0) throw new Error('No content script files in manifest');
+  await chrome.scripting.executeScript({ target: { tabId }, files });
+}
+
 async function runFill(tabId: number): Promise<FillResult> {
-  // 1. Extract fields from active page
-  const response = await chrome.tabs.sendMessage(tabId, {
-    type: 'EXTRACT_FIELDS',
-  }) as ExtractFieldsResponse | undefined;
-  if (!response?.fields) throw new Error('Failed to extract fields from page');
+  // 1. Extract fields — inject content script first if it's not already present
+  let response = await chrome.tabs.sendMessage(tabId, { type: 'EXTRACT_FIELDS' })
+    .catch(() => null) as ExtractFieldsResponse | null;
+
+  if (!response?.fields) {
+    await ensureContentScript(tabId);
+    response = await chrome.tabs.sendMessage(tabId, { type: 'EXTRACT_FIELDS' })
+      .catch(() => null) as ExtractFieldsResponse | null;
+    if (!response?.fields) throw new Error('Failed to extract fields — try reloading the tab');
+  }
+
   const { fields } = response;
 
   const instructions: FillInstruction[] = [];
