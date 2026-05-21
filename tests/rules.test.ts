@@ -78,6 +78,12 @@ describe('matchRule', () => {
     expect(result).toMatch(/^\d+$/);
   });
 
+  it('matches "National Identification (ID) Number" to a numeric string', () => {
+    const result = matchRule('National Identification (ID) Number');
+    expect(result).not.toBeNull();
+    expect(result).toMatch(/^\d+$/);
+  });
+
   it('returns null for an unrecognised label', () => {
     expect(matchRule('testimonial')).toBeNull();
   });

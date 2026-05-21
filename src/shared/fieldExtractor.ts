@@ -13,29 +13,45 @@ function getFieldType(
   return (valid as string[]).includes(t) ? (t as FieldType) : 'other';
 }
 
+const HINT_CLASS_RE = /hint|help|note|caption|helper|info|format|description|error|invalid|message|alert|validation|feedback/;
+
 function resolveHint(el: HTMLElement, doc: Document): string {
-  // aria-describedby
+  // aria-describedby (highest priority — explicit association)
   const describedById = el.getAttribute('aria-describedby');
   if (describedById) {
-    const text = doc.getElementById(describedById)?.textContent?.trim();
-    if (text) return text;
-  }
-
-  // Following siblings: <small> always qualifies; other elements need a hint-like class
-  let sibling = el.nextElementSibling;
-  let checked = 0;
-  while (sibling && checked < 3) {
-    const tag = sibling.tagName.toLowerCase();
-    const cls = sibling.className?.toLowerCase() ?? '';
-    const isHintElement =
-      tag === 'small' ||
-      /hint|help|note|caption|helper|info|format|description/.test(cls);
-    if (isHintElement) {
-      const text = sibling.textContent?.trim();
+    // Multiple IDs are space-separated
+    for (const id of describedById.trim().split(/\s+/)) {
+      const text = doc.getElementById(id)?.textContent?.trim();
       if (text) return text;
     }
-    sibling = sibling.nextElementSibling;
-    checked++;
+  }
+
+  // Preceding siblings — validation errors are often injected above the input
+  let prev = el.previousElementSibling;
+  let prevChecked = 0;
+  while (prev && prevChecked < 3) {
+    const tag = prev.tagName.toLowerCase();
+    const cls = prev.className?.toLowerCase() ?? '';
+    if (tag === 'small' || HINT_CLASS_RE.test(cls)) {
+      const text = prev.textContent?.trim();
+      if (text) return text;
+    }
+    prev = prev.previousElementSibling;
+    prevChecked++;
+  }
+
+  // Following siblings — static hint text
+  let next = el.nextElementSibling;
+  let nextChecked = 0;
+  while (next && nextChecked < 3) {
+    const tag = next.tagName.toLowerCase();
+    const cls = next.className?.toLowerCase() ?? '';
+    if (tag === 'small' || HINT_CLASS_RE.test(cls)) {
+      const text = next.textContent?.trim();
+      if (text) return text;
+    }
+    next = next.nextElementSibling;
+    nextChecked++;
   }
 
   return '';

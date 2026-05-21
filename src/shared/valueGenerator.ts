@@ -3,6 +3,24 @@ import { matchRule } from './rules';
 import { faker } from '@faker-js/faker';
 
 /**
+ * Extracts a "for example, X" or "e.g. X" example from hint/error text and
+ * generates a similar value by randomising only the digit positions.
+ * "Enter a valid postcode (for example, BB17004)" → "BB53291"
+ * "for example, 2345678, 1-246-234-5678" → "7813942" (first example used)
+ */
+export function generateFromHintExample(hint: string): string | null {
+  const match = hint.match(/(?:for example[,:]?\s*|e\.?g\.?,?\s*)([^\s,;]+)/i);
+  if (!match) return null;
+
+  const example = match[1].replace(/[.)]+$/, ''); // strip trailing punctuation
+  if (!example || example.length > 30) return null;
+
+  // Randomise digit positions only; preserve letters, dashes, spaces, etc.
+  const varied = example.replace(/[0-9]/g, () => faker.string.numeric(1));
+  return varied || null;
+}
+
+/**
  * Attempts to generate a string that satisfies a HTML `pattern` attribute by
  * structurally substituting known character-class tokens with real characters.
  * Returns null when the pattern is too complex to handle locally (→ AI fallback).
@@ -106,21 +124,26 @@ export function generateValue(field: FieldMeta): string | boolean | null {
     default: {
       const ruleValue = matchRule(field.label);
 
+      // Build candidate list in priority order:
+      // 1. Hint example — most format-specific (e.g. "BB17004" → "BB53291")
+      // 2. Rule value — label-matched faker output
+      // 3. Pattern generator — structural regex expansion
+      const hintValue = field.hint ? generateFromHintExample(field.hint) : null;
+
+      const candidates = [hintValue, ruleValue].filter((v): v is string => v !== null);
+
       if (!field.pattern) {
-        // No pattern constraint — return rule value directly
-        if (ruleValue === null) return null;
-        return applyMaxLength(ruleValue, field.maxLength);
+        const winner = candidates[0] ?? null;
+        return winner !== null ? applyMaxLength(winner, field.maxLength) : null;
       }
 
-      // Pattern present — validate rule value first, then try pattern generator, then AI
+      // Pattern present — pick the first candidate that satisfies it
       try {
         const re = new RegExp(`^(?:${field.pattern})$`);
-
-        if (ruleValue !== null && re.test(ruleValue)) {
-          return applyMaxLength(ruleValue, field.maxLength);
+        for (const candidate of candidates) {
+          if (re.test(candidate)) return applyMaxLength(candidate, field.maxLength);
         }
-
-        // Rule value didn't match (or was null) — try structural pattern generation
+        // No candidate matched — try structural pattern generation
         const patternValue = generateForPattern(field.pattern);
         if (patternValue !== null && re.test(patternValue)) {
           return applyMaxLength(patternValue, field.maxLength);

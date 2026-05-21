@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generateValue, generateForPattern } from '../src/shared/valueGenerator';
+import { generateValue, generateForPattern, generateFromHintExample } from '../src/shared/valueGenerator';
 import { FieldMeta } from '../src/shared/types';
 
 function field(overrides: Partial<FieldMeta>): FieldMeta {
@@ -139,5 +139,38 @@ describe('generateForPattern', () => {
 
   it('returns null for patterns too complex to generate locally', () => {
     expect(generateForPattern('(?=.*[A-Z]).{8}')).toBeNull();
+  });
+});
+
+describe('generateFromHintExample', () => {
+  it('extracts Barbados postcode example and randomises digits', () => {
+    const result = generateFromHintExample('Enter a valid postcode (for example, BB17004)');
+    expect(result).toMatch(/^BB\d{5}$/);
+  });
+
+  it('extracts first phone example from a multi-format hint', () => {
+    const result = generateFromHintExample(
+      'Please enter a valid phone number (for example, 2345678, 1-246-234-5678, or 1 246 234 5678)'
+    );
+    expect(result).toMatch(/^\d{7}$/);
+  });
+
+  it('works with "e.g." prefix', () => {
+    const result = generateFromHintExample('Must be in format e.g. AB1234');
+    expect(result).toMatch(/^AB\d{4}$/);
+  });
+
+  it('returns null when no example pattern is present', () => {
+    expect(generateFromHintExample('This field is required')).toBeNull();
+    expect(generateFromHintExample('Must be at least 8 characters')).toBeNull();
+  });
+
+  it('hint example takes priority over rule value in generateValue', () => {
+    // Postcode rule generates a US zip; hint says "BB17004" → should use BB format
+    const result = generateValue({
+      id: 'x', elementId: '', elementName: '', label: 'Postcode', type: 'text',
+      hint: 'Enter a valid postcode (for example, BB17004)',
+    });
+    expect(result).toMatch(/^BB\d{5}$/);
   });
 });

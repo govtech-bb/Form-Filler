@@ -144,7 +144,7 @@ const RULES: Rule[] = [
     generate: () => faker.string.alphanumeric(8).toUpperCase(),
   },
   {
-    patterns: [/\bnational[\s\-_]?id\b/, /\bnid\b/, /\bid[\s\-_]?number\b/, /\bssn\b/, /\bsocial[\s\-_]?security\b/, /\bpassport\b/],
+    patterns: [/\bnational[\s\-_]?id\b/, /\bnational[\s\-_]?identification\b/, /\bidentification\b/, /\bnid\b/, /\bid[\s\-_]?number\b/, /\bssn\b/, /\bsocial[\s\-_]?security\b/, /\bpassport\b/],
     generate: () => faker.string.numeric(9),
   },
   {
