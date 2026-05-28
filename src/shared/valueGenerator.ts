@@ -89,6 +89,28 @@ function applyMaxLength(value: string, maxLength?: number): string {
   return maxLength && value.length > maxLength ? value.slice(0, maxLength) : value;
 }
 
+const TEXT_LIKE_TYPES = ['text', 'textarea', 'email', 'tel', 'url', 'password', 'search'];
+
+/**
+ * Last-resort value for a free-text field whose label matched no rule and that AI
+ * didn't fill — so the field isn't left blank. Returns null for structured types
+ * (select/radio/checkbox) and pattern-constrained fields, where arbitrary text
+ * would be invalid; those are better left blank than filled wrongly.
+ */
+export function generateGenericText(field: FieldMeta): string | null {
+  if (!TEXT_LIKE_TYPES.includes(field.type)) return null;
+  if (field.pattern) return null;
+
+  let value: string;
+  switch (field.type) {
+    case 'email': value = faker.internet.email(); break;
+    case 'url': value = faker.internet.url(); break;
+    case 'password': value = 'TestPassword123!'; break;
+    default: value = faker.lorem.words(2);
+  }
+  return applyMaxLength(value, field.maxLength);
+}
+
 export function generateValue(
   field: FieldMeta,
   dateGroupCache?: Map<string, Date>

@@ -34,6 +34,12 @@ const RULES: Rule[] = [
     generate: () => faker.person.lastName(),
   },
   {
+    // Must precede the generic `\bname\b` rule, which would otherwise emit a full
+    // name (e.g. "Bert Steuber PhD") into a middle-name field.
+    patterns: [/\bmiddle[\s\-_]?name\b/],
+    generate: () => faker.person.middleName(),
+  },
+  {
     patterns: [/\bfull[\s\-_]?name\b/],
     generate: () => faker.person.fullName(),
   },
@@ -68,12 +74,18 @@ const RULES: Rule[] = [
     generate: () => faker.location.state(),
   },
   {
-    patterns: [/\bzip\b/, /\bpostal[\s\-_]?code\b/, /\bpost[\s\-_]?code\b/],
-    generate: () => faker.location.zipCode(),
+    // Barbados postcode: "BB" followed by 5 digits (e.g. BB17004).
+    patterns: [/\bzip\b/, /\bpostal[\s\-_]?code\b/, /\bpost[\s\-_]?code\b/, /\bpostcode\b/],
+    generate: () => `BB${faker.string.numeric(5)}`,
   },
   {
     patterns: [/\bcountry\b/, /\bnation\b/],
     generate: () => faker.location.country(),
+  },
+  {
+    // "Place of birth", "Place of baptism", "Location", etc. — emit a city name.
+    patterns: [/\bplace\b/, /\blocation\b/, /\bbirthplace\b/],
+    generate: () => faker.location.city(),
   },
   {
     patterns: [/\bcompany\b/, /\borganisati?on\b/, /\bemployer\b/, /\bfirm\b/],

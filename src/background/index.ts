@@ -1,4 +1,4 @@
-import { generateValue } from '../shared/valueGenerator';
+import { generateValue, generateGenericText } from '../shared/valueGenerator';
 import { isConfirmationLabel, normalizeLabel } from '../shared/rules';
 import { pollForFields } from './poll';
 import {
@@ -168,6 +168,11 @@ async function runFill(tabId: number): Promise<FillResult> {
         }
         instructions.push({ fieldId: field.id, value });
         aiFieldCount++;
+      } else {
+        // No AI value (no key, or AI failed/omitted it) — generic local fallback
+        // so free-text fields aren't left blank.
+        const generic = generateGenericText(field);
+        if (generic !== null) instructions.push({ fieldId: field.id, value: generic });
       }
     }
   }

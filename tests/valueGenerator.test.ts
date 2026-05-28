@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generateValue, generateForPattern, generateFromHintExample } from '../src/shared/valueGenerator';
+import { generateValue, generateForPattern, generateFromHintExample, generateGenericText } from '../src/shared/valueGenerator';
 import { FieldMeta } from '../src/shared/types';
 
 function field(overrides: Partial<FieldMeta>): FieldMeta {
@@ -66,6 +66,14 @@ describe('generateValue', () => {
   it('returns null for an unknown label (testimonial)', () => {
     const result = generateValue(field({ type: 'text', label: 'testimonial' }));
     expect(result).toBeNull();
+  });
+
+  it('generates a valid BB postcode on the first pass (no hint, no pattern)', () => {
+    // gov-bb's postcode field exposes no pattern and no extractable hint on the
+    // first fill, so the value must be valid from the rule alone — not only after
+    // the validation-error round-trip supplies "for example, BB17004".
+    const result = generateValue(field({ type: 'text', label: 'Postcode' }));
+    expect(result).toMatch(/^BB\d{5}$/);
   });
 
   it('respects min/max for number fields', () => {
@@ -149,6 +157,31 @@ describe('generateValue', () => {
       expect(typeof yearA).toBe('string');
       expect(typeof yearB).toBe('string');
     });
+  });
+});
+
+describe('generateGenericText', () => {
+  it('returns placeholder words for an unmatched text field', () => {
+    const result = generateGenericText(field({ type: 'text', label: 'Place of baptism' }));
+    expect(typeof result).toBe('string');
+    expect((result as string).length).toBeGreaterThan(0);
+  });
+
+  it('returns an email for an email-typed field', () => {
+    expect(generateGenericText(field({ type: 'email' }))).toMatch(/@/);
+  });
+
+  it('respects maxLength', () => {
+    const result = generateGenericText(field({ type: 'text', maxLength: 4 }));
+    expect((result as string).length).toBeLessThanOrEqual(4);
+  });
+
+  it('returns null for structured (select) types', () => {
+    expect(generateGenericText(field({ type: 'select', options: ['a'] }))).toBeNull();
+  });
+
+  it('returns null when a pattern is present (avoids invalid values)', () => {
+    expect(generateGenericText(field({ type: 'text', pattern: '[0-9]{6}' }))).toBeNull();
   });
 });
 

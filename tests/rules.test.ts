@@ -31,6 +31,14 @@ describe('matchRule', () => {
     expect(result!.length).toBeGreaterThan(0);
   });
 
+  it('matches "Middle Name" to a single name without titles or surnames', () => {
+    const result = matchRule('Middle Name');
+    expect(result).not.toBeNull();
+    // A middle name is a single token — not a full name ("John Doe") or a
+    // titled name ("Bert Steuber PhD"), both of which contain spaces.
+    expect(result).not.toMatch(/\s/);
+  });
+
   it('matches "Email Address" to something containing @', () => {
     const result = matchRule('Email Address');
     expect(result).toMatch(/@/);
@@ -115,6 +123,14 @@ describe('matchRule', () => {
   it('matches "TAMIS number" to a numeric string', () => {
     const result = matchRule('TAMIS number');
     expect(result).toMatch(/^\d+$/);
+  });
+
+  it('matches "Place of birth" to a non-empty string (city)', () => {
+    expect(matchRule('Place of birth')).not.toBeNull();
+  });
+
+  it('matches "Place of baptism" to a non-empty string (city)', () => {
+    expect(matchRule('Place of baptism')).not.toBeNull();
   });
 
   it('returns null for an unrecognised label', () => {
