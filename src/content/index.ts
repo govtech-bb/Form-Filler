@@ -11,7 +11,7 @@ const nativeTextareaSetter = Object.getOwnPropertyDescriptor(
   'value'
 )?.set;
 
-function applyValues(instructions: FillInstruction[]): FillResult {
+export function applyValues(instructions: FillInstruction[]): FillResult {
   let fieldsFilled = 0;
   let fieldsSkipped = 0;
 
@@ -37,17 +37,22 @@ function applyValues(instructions: FillInstruction[]): FillResult {
     }
 
     if (el instanceof HTMLInputElement && el.type === 'radio') {
-      const radio = document.querySelector<HTMLInputElement>(
-        `input[type="radio"][name="${el.name}"][value="${instruction.value}"]`
-      );
-      if (radio) {
-        if (!radio.checked) {
-          radio.click(); // selects this radio, deselects others, triggers framework events
-        }
-        fieldsFilled++;
-      } else {
-        fieldsSkipped++;
+      const want = String(instruction.value);
+      // Match on the .value *property*, not a [value="…"] attribute selector: a
+      // radio with no value attribute reports .value === "on" but has no value
+      // attribute, so [value="on"] would never match and nothing got selected.
+      const group = el.name
+        ? Array.from(
+            document.querySelectorAll<HTMLInputElement>(
+              `input[type="radio"][name="${el.name}"]`
+            )
+          )
+        : [el];
+      const radio = group.find((r) => r.value === want) ?? group[0] ?? el;
+      if (!radio.checked) {
+        radio.click(); // selects this radio, deselects others, triggers framework events
       }
+      fieldsFilled++;
       continue;
     }
 
@@ -136,8 +141,11 @@ function watchForValidationErrors(): void {
   });
 }
 
-chrome.runtime.onMessage.addListener(
-  (message: MessageToContent, _sender, sendResponse) => {
+// Guarded so the module can be imported in tests (where `chrome` is absent)
+// without registering the listener.
+if (typeof chrome !== 'undefined' && chrome.runtime?.onMessage) {
+  chrome.runtime.onMessage.addListener(
+    (message: MessageToContent, _sender, sendResponse) => {
     if (message.type === 'EXTRACT_FIELDS') {
       sendResponse({ fields: extractFields(document) });
       return false;
@@ -162,5 +170,6 @@ chrome.runtime.onMessage.addListener(
       sendResponse({ ok: true });
       return false;
     }
-  }
-);
+    }
+  );
+}

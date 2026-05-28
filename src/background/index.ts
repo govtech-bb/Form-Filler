@@ -1,4 +1,5 @@
 import { generateValue } from '../shared/valueGenerator';
+import { pollForFields } from './poll';
 import {
   ExtractFieldsResponse,
   FieldMeta,
@@ -101,19 +102,24 @@ async function ensureContentScript(tabId: number): Promise<void> {
   await chrome.scripting.executeScript({ target: { tabId }, files });
 }
 
+async function extractFromTab(tabId: number): Promise<FieldMeta[] | null> {
+  const response = (await chrome.tabs
+    .sendMessage(tabId, { type: 'EXTRACT_FIELDS' })
+    .catch(() => null)) as ExtractFieldsResponse | null;
+  return response?.fields ?? null;
+}
+
 async function runFill(tabId: number): Promise<FillResult> {
   // 1. Extract fields — inject content script first if it's not already present
-  let response = await chrome.tabs.sendMessage(tabId, { type: 'EXTRACT_FIELDS' })
-    .catch(() => null) as ExtractFieldsResponse | null;
+  let fields = await extractFromTab(tabId);
 
-  if (!response?.fields) {
+  if (!fields) {
     await ensureContentScript(tabId);
-    response = await chrome.tabs.sendMessage(tabId, { type: 'EXTRACT_FIELDS' })
-      .catch(() => null) as ExtractFieldsResponse | null;
-    if (!response?.fields) throw new Error('Failed to extract fields — try reloading the tab');
+    // The injected loader registers its message listener only after an async
+    // dynamic import resolves, so poll a few times rather than asking just once.
+    fields = await pollForFields(() => extractFromTab(tabId));
+    if (!fields) throw new Error('Failed to extract fields — try reloading the tab');
   }
-
-  const { fields } = response;
 
   const instructions: FillInstruction[] = [];
   const aiNeeded: FieldMeta[] = [];
