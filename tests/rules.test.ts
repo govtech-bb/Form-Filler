@@ -68,19 +68,52 @@ describe('matchRule', () => {
     expect(matchRule('Confirm Password')).toBe('TestPassword123!');
   });
 
-  it('matches "telephone number" to a non-empty string', () => {
-    expect(matchRule('telephone number')).not.toBeNull();
+  it('matches "telephone number" to the Barbados shape (1-246-XXX-XXXX)', () => {
+    expect(matchRule('telephone number')).toMatch(/^1-246-\d{3}-\d{4}$/);
   });
 
-  it('matches "national id number" to a numeric string', () => {
+  it('matches "phone" to the Barbados shape with no extension', () => {
+    const result = matchRule('phone');
+    expect(result).toMatch(/^1-246-\d{3}-\d{4}$/);
+    expect(result).not.toMatch(/x/i);
+  });
+
+  it('matches "mobile" to the Barbados shape', () => {
+    expect(matchRule('mobile')).toMatch(/^1-246-\d{3}-\d{4}$/);
+  });
+
+  it('matches "national id number" to the Barbados shape (6 digits, dash, 4 digits)', () => {
     const result = matchRule('national id number');
-    expect(result).not.toBeNull();
+    expect(result).toMatch(/^\d{6}-\d{4}$/);
+  });
+
+  it('matches "National Identification (ID) Number" to the Barbados shape', () => {
+    const result = matchRule('National Identification (ID) Number');
+    expect(result).toMatch(/^\d{6}-\d{4}$/);
+  });
+
+  it('matches "passport number" to a numeric string of at least 6 chars', () => {
+    const result = matchRule('passport number');
+    expect(result).toMatch(/^\d{6,}$/);
+  });
+
+  it('matches "SSN" to a numeric string (not the BB national-id shape)', () => {
+    const result = matchRule('SSN');
     expect(result).toMatch(/^\d+$/);
   });
 
-  it('matches "National Identification (ID) Number" to a numeric string', () => {
-    const result = matchRule('National Identification (ID) Number');
-    expect(result).not.toBeNull();
+  it('matches "National Insurance number" to the NIS shape (AA######A)', () => {
+    const result = matchRule('National Insurance number');
+    expect(result).toMatch(/^[A-Z]{2}\d{6}[A-Z]$/);
+  });
+
+  it('matches "NIS" to the NIS shape', () => {
+    const result = matchRule('NIS');
+    expect(result).toMatch(/^[A-Z]{2}\d{6}[A-Z]$/);
+  });
+
+  it('matches "TAMIS number" to a numeric string', () => {
+    const result = matchRule('TAMIS number');
     expect(result).toMatch(/^\d+$/);
   });
 

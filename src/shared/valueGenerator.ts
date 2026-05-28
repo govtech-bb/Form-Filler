@@ -9,7 +9,7 @@ import { faker } from '@faker-js/faker';
  * "for example, 2345678, 1-246-234-5678" → "7813942" (first example used)
  */
 export function generateFromHintExample(hint: string): string | null {
-  const match = hint.match(/(?:for example[,:]?\s*|e\.?g\.?,?\s*)([^\s,;]+)/i);
+  const match = hint.match(/(?:for example[,:\s]+|e\.?g\.?[,:\s]+)([^\s,;(]+)/i);
   if (!match) return null;
 
   const example = match[1].replace(/[.)]+$/, ''); // strip trailing punctuation
@@ -89,7 +89,24 @@ function applyMaxLength(value: string, maxLength?: number): string {
   return maxLength && value.length > maxLength ? value.slice(0, maxLength) : value;
 }
 
-export function generateValue(field: FieldMeta): string | boolean | null {
+export function generateValue(
+  field: FieldMeta,
+  dateGroupCache?: Map<string, Date>
+): string | boolean | null {
+  // Date triplet member — emit the requested part of a shared past date.
+  // The cache keys by dateGroupId so all three siblings see the same date.
+  if (field.datePart && field.dateGroupId) {
+    const cache = dateGroupCache ?? new Map<string, Date>();
+    let date = cache.get(field.dateGroupId);
+    if (!date) {
+      date = faker.date.past({ years: 30 });
+      cache.set(field.dateGroupId, date);
+    }
+    if (field.datePart === 'day') return String(date.getUTCDate());
+    if (field.datePart === 'month') return String(date.getUTCMonth() + 1);
+    return String(date.getUTCFullYear());
+  }
+
   switch (field.type) {
     case 'select': {
       if (!field.options || field.options.length === 0) return null;

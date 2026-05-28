@@ -94,13 +94,13 @@ describe('extractFields', () => {
     expect(fields[0].options).toEqual(['male', 'female', 'other']);
   });
 
-  it('deduplicates checkbox group — emits only first', () => {
+  it('extracts every checkbox in a shared-name group individually', () => {
     const doc = makeDoc(`
       <input type="checkbox" name="interests" value="sports" />
       <input type="checkbox" name="interests" value="music" />
     `);
     const fields = extractFields(doc);
-    expect(fields).toHaveLength(1);
+    expect(fields).toHaveLength(2);
   });
 
   it('emits standalone checkboxes individually', () => {
@@ -181,5 +181,46 @@ describe('extractFields', () => {
     const fields = extractFields(doc);
     expect(fields[0].pattern).toBeUndefined();
     expect(fields[0].hint).toBeUndefined();
+  });
+
+  it('tags Day/Month/Year inputs inside a fieldset[data-date-field] with shared dateGroupId', () => {
+    const doc = makeDoc(`
+      <fieldset data-date-field>
+        <legend>Date of birth</legend>
+        <div><label>Day</label><input type="number" min="1" max="31" /></div>
+        <div><label>Month</label><input type="number" min="1" max="12" /></div>
+        <div><label>Year</label><input type="number" /></div>
+      </fieldset>
+    `);
+    const fields = extractFields(doc);
+    expect(fields).toHaveLength(3);
+    expect(fields[0].datePart).toBe('day');
+    expect(fields[1].datePart).toBe('month');
+    expect(fields[2].datePart).toBe('year');
+    // All three share one group id
+    expect(fields[0].dateGroupId).toBeDefined();
+    expect(fields[0].dateGroupId).toBe(fields[1].dateGroupId);
+    expect(fields[1].dateGroupId).toBe(fields[2].dateGroupId);
+  });
+
+  it('does not tag ordinary number inputs as date parts', () => {
+    const doc = makeDoc(`<input type="number" aria-label="Age" min="18" max="65" />`);
+    const fields = extractFields(doc);
+    expect(fields[0].datePart).toBeUndefined();
+    expect(fields[0].dateGroupId).toBeUndefined();
+  });
+
+  it('detects date triplet via sibling labels even without data-date-field', () => {
+    const doc = makeDoc(`
+      <div>
+        <div><label>Day</label><input type="number" min="1" max="31" /></div>
+        <div><label>Month</label><input type="number" min="1" max="12" /></div>
+        <div><label>Year</label><input type="number" /></div>
+      </div>
+    `);
+    const fields = extractFields(doc);
+    expect(fields).toHaveLength(3);
+    expect(fields.map((f) => f.datePart)).toEqual(['day', 'month', 'year']);
+    expect(fields[0].dateGroupId).toBe(fields[2].dateGroupId);
   });
 });

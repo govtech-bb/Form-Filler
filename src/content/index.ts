@@ -1,7 +1,7 @@
 import { extractFields } from '../shared/fieldExtractor';
 import { FillInstruction, FillResult, MessageToContent } from '../shared/types';
 
-// Use native setter so React controlled inputs pick up the change
+// Use native setters so React/Vue controlled inputs pick up the change
 const nativeInputSetter = Object.getOwnPropertyDescriptor(
   HTMLInputElement.prototype,
   'value'
@@ -26,8 +26,12 @@ function applyValues(instructions: FillInstruction[]): FillResult {
     }
 
     if (el instanceof HTMLInputElement && el.type === 'checkbox') {
-      el.checked = instruction.value === true;
-      el.dispatchEvent(new Event('change', { bubbles: true }));
+      const wantChecked = instruction.value === true;
+      // click() toggles state and fires the native click event that React/Vue
+      // event delegation listens to — only call if the state actually needs to change
+      if (el.checked !== wantChecked) {
+        el.click();
+      }
       fieldsFilled++;
       continue;
     }
@@ -37,8 +41,9 @@ function applyValues(instructions: FillInstruction[]): FillResult {
         `input[type="radio"][name="${el.name}"][value="${instruction.value}"]`
       );
       if (radio) {
-        radio.checked = true;
-        radio.dispatchEvent(new Event('change', { bubbles: true }));
+        if (!radio.checked) {
+          radio.click(); // selects this radio, deselects others, triggers framework events
+        }
         fieldsFilled++;
       } else {
         fieldsSkipped++;
@@ -72,16 +77,88 @@ function applyValues(instructions: FillInstruction[]): FillResult {
   };
 }
 
+// Trigger classes that indicate a validation error has appeared
+const ERROR_CLASS_RE = /\b(error|invalid|danger)\b/;
+
+function watchForValidationErrors(): void {
+  let fired = false;
+
+  const trigger = () => {
+    if (fired) return;
+    fired = true;
+    observer.disconnect();
+    clearTimeout(timer);
+    // Re-extract now that error elements are in the DOM (hints updated)
+    const updatedFields = extractFields(document);
+    chrome.runtime.sendMessage({ type: 'VALIDATION_ERRORS_APPEARED', fields: updatedFields });
+  };
+
+  const isErrorNode = (node: Element): boolean => {
+    const cls = (node.className ?? '').toLowerCase();
+    const role = node.getAttribute('role') ?? '';
+    return ERROR_CLASS_RE.test(cls) || role === 'alert' || role === 'status';
+  };
+
+  const observer = new MutationObserver((mutations) => {
+    for (const mut of mutations) {
+      if (mut.type === 'childList') {
+        for (const node of mut.addedNodes) {
+          if (!(node instanceof HTMLElement)) continue;
+          if (isErrorNode(node) && node.textContent?.trim()) {
+            trigger();
+            return;
+          }
+          // Error element nested inside an added container
+          const nested = node.querySelector('[role="alert"],[role="status"],[aria-live]');
+          if (nested?.textContent?.trim()) {
+            trigger();
+            return;
+          }
+        }
+      } else if (mut.type === 'attributes') {
+        const target = mut.target as HTMLInputElement;
+        if (target.getAttribute?.('aria-invalid') === 'true') {
+          trigger();
+          return;
+        }
+      }
+    }
+  });
+
+  // Auto-disconnect after 8 seconds so the observer doesn't linger indefinitely
+  const timer = setTimeout(() => observer.disconnect(), 8000);
+
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['aria-invalid'],
+  });
+}
+
 chrome.runtime.onMessage.addListener(
   (message: MessageToContent, _sender, sendResponse) => {
     if (message.type === 'EXTRACT_FIELDS') {
-      const fields = extractFields(document);
-      sendResponse({ fields });
+      sendResponse({ fields: extractFields(document) });
       return false;
     }
 
     if (message.type === 'APPLY_VALUES') {
       applyValues(message.instructions);
+
+      if (message.fireValidation) {
+        // Fire blur so that blur-triggered validators run immediately
+        for (const { fieldId } of message.instructions) {
+          const el = document.querySelector(`[data-ff-uid="${fieldId}"]`);
+          if (el) {
+            el.dispatchEvent(new Event('blur', { bubbles: true }));
+            el.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+          }
+        }
+        // Watch for errors that appear from blur OR from the user clicking Continue
+        watchForValidationErrors();
+      }
+
       sendResponse({ ok: true });
       return false;
     }

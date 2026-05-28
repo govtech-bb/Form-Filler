@@ -32,8 +32,14 @@ const RULES: Rule[] = [
     generate: () => faker.internet.email(),
   },
   {
+    // Barbados number: country code 1, area code 246, then a 7-digit local
+    // number (NANP exchange first digit is 2-9). faker.phone.number() defaults
+    // to the en_US locale, emitting US area codes and random extensions
+    // (e.g. "1-689-376-3966 x59137") that fail gov-bb validation.
     patterns: [/\bphone\b/, /\btelephone\b/, /\bmobile\b/, /\btel\b/, /\bcell\b/, /\bcontact[\s\-_]?number\b/],
-    generate: () => faker.phone.number(),
+    generate: () =>
+      `1-246-${faker.number.int({ min: 2, max: 9 })}` +
+      `${faker.string.numeric(2)}-${faker.string.numeric(4)}`,
   },
   {
     patterns: [/\baddress\b/, /\bstreet\b/],
@@ -144,8 +150,28 @@ const RULES: Rule[] = [
     generate: () => faker.string.alphanumeric(8).toUpperCase(),
   },
   {
-    patterns: [/\bnational[\s\-_]?id\b/, /\bnational[\s\-_]?identification\b/, /\bidentification\b/, /\bnid\b/, /\bid[\s\-_]?number\b/, /\bssn\b/, /\bsocial[\s\-_]?security\b/, /\bpassport\b/],
+    // National Insurance number (Barbados NIS) — must come before the broader
+    // national-id rule so it wins on labels containing "national insurance".
+    patterns: [/\bnational[\s\-_]?insurance\b/, /\bnis\b/, /\bnational[\s\-_]?insurance[\s\-_]?number\b/],
+    generate: () =>
+      faker.string.alpha({ length: 2, casing: 'upper' }) +
+      faker.string.numeric(6) +
+      faker.string.alpha({ length: 1, casing: 'upper' }),
+  },
+  {
+    // Barbados national ID format: 6 digits, dash, 4 digits (e.g. 850101-0001).
+    patterns: [/\bnational[\s\-_]?id\b/, /\bnational[\s\-_]?identification\b/, /\bidentification\b/, /\bnid\b/, /\bid[\s\-_]?number\b/],
+    generate: () => `${faker.string.numeric(6)}-${faker.string.numeric(4)}`,
+  },
+  {
+    // Passport / SSN — generic 9-digit numeric (passport min-length 6 is satisfied).
+    patterns: [/\bssn\b/, /\bsocial[\s\-_]?security\b/, /\bpassport\b/],
     generate: () => faker.string.numeric(9),
+  },
+  {
+    // TAMIS (Barbados tax system) reference number — numeric.
+    patterns: [/\btamis\b/],
+    generate: () => faker.string.numeric(8),
   },
   {
     patterns: [/\bsearch\b/, /\bquery\b/, /\bkeyword\b/],

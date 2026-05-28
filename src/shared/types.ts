@@ -16,6 +16,8 @@ export interface FieldMeta {
   min?: string;         // HTML min attribute (number/date inputs)
   max?: string;         // HTML max attribute (number/date inputs)
   hint?: string;        // hint/help text near the field
+  datePart?: 'day' | 'month' | 'year';  // member of a split date triplet
+  dateGroupId?: string;                  // shared across the three triplet siblings
 }
 
 export interface FillInstruction {
@@ -38,12 +40,16 @@ export interface StoredSettings {
 // Messages sent TO content script
 export type MessageToContent =
   | { type: 'EXTRACT_FIELDS' }
-  | { type: 'APPLY_VALUES'; instructions: FillInstruction[] };
+  | { type: 'APPLY_VALUES'; instructions: FillInstruction[]; fireValidation?: boolean };
 
 // Messages sent FROM content script back to background
 export interface ExtractFieldsResponse {
   fields: FieldMeta[];
 }
+
+// Messages sent FROM content script to background (unsolicited)
+export type MessageFromContent =
+  | { type: 'VALIDATION_ERRORS_APPEARED'; fields: FieldMeta[] };
 
 // Messages sent TO background (from popup)
 export type MessageToBackground =

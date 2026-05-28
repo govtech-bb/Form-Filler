@@ -6,6 +6,7 @@ function getFieldType(
   if (el instanceof HTMLSelectElement) return 'select';
   if (el instanceof HTMLTextAreaElement) return 'textarea';
   const t = (el as HTMLInputElement).type?.toLowerCase() ?? 'text';
+  if (t === 'search') return 'text'; // search behaves identically to text for filling
   const valid: FieldType[] = [
     'text', 'email', 'password', 'number', 'date',
     'datetime-local', 'tel', 'url', 'checkbox', 'radio',
@@ -13,26 +14,37 @@ function getFieldType(
   return (valid as string[]).includes(t) ? (t as FieldType) : 'other';
 }
 
-const HINT_CLASS_RE = /hint|help|note|caption|helper|info|format|description|error|invalid|message|alert|validation|feedback/;
+const HINT_CLASS_RE = /hint|help|note|caption|helper|info|format|description|error|invalid|message|alert|validation|feedback|warning|danger|required/;
 
 function resolveHint(el: HTMLElement, doc: Document): string {
   // aria-describedby (highest priority — explicit association)
   const describedById = el.getAttribute('aria-describedby');
   if (describedById) {
-    // Multiple IDs are space-separated
     for (const id of describedById.trim().split(/\s+/)) {
       const text = doc.getElementById(id)?.textContent?.trim();
       if (text) return text;
     }
   }
 
+  // aria-errormessage (newer ARIA pattern for inline errors)
+  const errorMsgId = el.getAttribute('aria-errormessage');
+  if (errorMsgId) {
+    const text = doc.getElementById(errorMsgId)?.textContent?.trim();
+    if (text) return text;
+  }
+
+  const matchesHintEl = (node: Element): boolean => {
+    const tag = node.tagName.toLowerCase();
+    const cls = (node.className ?? '').toLowerCase();
+    const role = node.getAttribute('role') ?? '';
+    return tag === 'small' || HINT_CLASS_RE.test(cls) || role === 'alert' || role === 'status';
+  };
+
   // Preceding siblings — validation errors are often injected above the input
   let prev = el.previousElementSibling;
   let prevChecked = 0;
   while (prev && prevChecked < 3) {
-    const tag = prev.tagName.toLowerCase();
-    const cls = prev.className?.toLowerCase() ?? '';
-    if (tag === 'small' || HINT_CLASS_RE.test(cls)) {
+    if (matchesHintEl(prev)) {
       const text = prev.textContent?.trim();
       if (text) return text;
     }
@@ -44,14 +56,25 @@ function resolveHint(el: HTMLElement, doc: Document): string {
   let next = el.nextElementSibling;
   let nextChecked = 0;
   while (next && nextChecked < 3) {
-    const tag = next.tagName.toLowerCase();
-    const cls = next.className?.toLowerCase() ?? '';
-    if (tag === 'small' || HINT_CLASS_RE.test(cls)) {
+    if (matchesHintEl(next)) {
       const text = next.textContent?.trim();
       if (text) return text;
     }
     next = next.nextElementSibling;
     nextChecked++;
+  }
+
+  // Parent container — some frameworks inject errors inside the field wrapper
+  // (e.g. Bootstrap .form-group, GOV.UK .govuk-form-group)
+  const parent = el.parentElement;
+  if (parent) {
+    for (let child = parent.firstElementChild; child; child = child.nextElementSibling) {
+      if (child === el) continue;
+      if (matchesHintEl(child)) {
+        const text = child.textContent?.trim();
+        if (text) return text;
+      }
+    }
   }
 
   return '';
@@ -106,6 +129,99 @@ function resolveLabel(el: HTMLElement, doc: Document): string {
 
 let _uidCounter = 0;
 
+type DatePart = 'day' | 'month' | 'year';
+
+/**
+ * Finds the nearest <label> text for an input — used only for date-triplet detection,
+ * so it returns the raw label text (not the resolved label from resolveLabel).
+ */
+function findDatePartLabel(el: HTMLInputElement, doc: Document): DatePart | null {
+  let text = '';
+
+  // Wrapping <label>
+  const parentLabel = el.closest('label');
+  if (parentLabel) text = parentLabel.textContent ?? '';
+
+  // <label for="id"> — only if id is set
+  if (!text && el.id) {
+    text = doc.querySelector(`label[for="${el.id}"]`)?.textContent ?? '';
+  }
+
+  // Previous sibling <label>
+  if (!text) {
+    let s = el.previousElementSibling;
+    while (s && !text) {
+      if (s.tagName.toLowerCase() === 'label') text = s.textContent ?? '';
+      s = s.previousElementSibling;
+    }
+  }
+
+  // Sibling <label> inside the same parent (covers <div><label>Day</label><input></div>)
+  if (!text && el.parentElement) {
+    const lbl = el.parentElement.querySelector('label');
+    if (lbl) text = lbl.textContent ?? '';
+  }
+
+  const normalized = text.trim().toLowerCase();
+  if (normalized === 'day') return 'day';
+  if (normalized === 'month') return 'month';
+  if (normalized === 'year') return 'year';
+  return null;
+}
+
+/**
+ * Scans the document for Day/Month/Year input triplets and tags them with a shared
+ * group id. A triplet is any ancestor (typically <fieldset data-date-field>) that
+ * contains one Day, one Month, and one Year number input.
+ */
+function preprocessDateTriplets(
+  doc: Document
+): WeakMap<HTMLInputElement, { part: DatePart; groupId: string }> {
+  const map = new WeakMap<HTMLInputElement, { part: DatePart; groupId: string }>();
+
+  const numberInputs = Array.from(
+    doc.querySelectorAll<HTMLInputElement>('input[type="number"]')
+  );
+  const partOf = new Map<HTMLInputElement, DatePart>();
+  for (const inp of numberInputs) {
+    const part = findDatePartLabel(inp, doc);
+    if (part) partOf.set(inp, part);
+  }
+
+  // For each Day input, walk up to the lowest ancestor that also contains a Month
+  // and a Year input. That ancestor is the triplet's container.
+  const claimed = new WeakSet<HTMLInputElement>();
+  for (const [dayInp, p] of partOf) {
+    if (p !== 'day' || claimed.has(dayInp)) continue;
+
+    let container: Element | null = dayInp.parentElement;
+    let monthInp: HTMLInputElement | undefined;
+    let yearInp: HTMLInputElement | undefined;
+
+    while (container) {
+      const descendants = Array.from(
+        container.querySelectorAll<HTMLInputElement>('input[type="number"]')
+      );
+      monthInp = descendants.find((i) => partOf.get(i) === 'month' && !claimed.has(i));
+      yearInp = descendants.find((i) => partOf.get(i) === 'year' && !claimed.has(i));
+      if (monthInp && yearInp) break;
+      container = container.parentElement;
+    }
+
+    if (!monthInp || !yearInp) continue;
+
+    const groupId = `dg-${Date.now()}-${_uidCounter++}`;
+    map.set(dayInp, { part: 'day', groupId });
+    map.set(monthInp, { part: 'month', groupId });
+    map.set(yearInp, { part: 'year', groupId });
+    claimed.add(dayInp);
+    claimed.add(monthInp);
+    claimed.add(yearInp);
+  }
+
+  return map;
+}
+
 export function extractFields(doc: Document = document): FieldMeta[] {
   const selector =
     'input:not([type="hidden"]):not([type="submit"]):not([type="button"])' +
@@ -115,9 +231,10 @@ export function extractFields(doc: Document = document): FieldMeta[] {
     doc.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(selector)
   );
 
+  const dateTriplets = preprocessDateTriplets(doc);
+
   const fields: FieldMeta[] = [];
   const radioGroups = new Set<string>();
-  const checkboxGroups = new Set<string>();
 
   for (const el of elements) {
     const type = getFieldType(el);
@@ -125,19 +242,18 @@ export function extractFields(doc: Document = document): FieldMeta[] {
 
     const elementName = el.getAttribute('name') ?? '';
 
-    // Deduplicate radio groups
+    // Deduplicate radio groups — only the first radio per name is extracted;
+    // applyValues looks up the right radio by value at fill time.
     if (type === 'radio' && elementName) {
       if (radioGroups.has(elementName)) continue;
       radioGroups.add(elementName);
     }
 
-    // Deduplicate checkbox groups (same name = group; no name = standalone)
-    if (type === 'checkbox' && elementName) {
-      if (checkboxGroups.has(elementName)) continue;
-      checkboxGroups.add(elementName);
-    }
+    // Checkboxes are NOT deduplicated — each checkbox (even within a shared-name
+    // group) is independently fillable and should be individually checked.
 
-    const uid = `ff-${Date.now()}-${_uidCounter++}`;
+    const existingUid = (el as HTMLElement).dataset.ffUid;
+    const uid = existingUid ?? `ff-${Date.now()}-${_uidCounter++}`;
     (el as HTMLElement).dataset.ffUid = uid;
 
     const meta: FieldMeta = {
@@ -165,6 +281,15 @@ export function extractFields(doc: Document = document): FieldMeta[] {
 
     const hint = resolveHint(el, doc);
     if (hint) meta.hint = hint;
+
+    // Tag date-triplet members so the value generator can emit a coherent date
+    if (el instanceof HTMLInputElement) {
+      const datePart = dateTriplets.get(el);
+      if (datePart) {
+        meta.datePart = datePart.part;
+        meta.dateGroupId = datePart.groupId;
+      }
+    }
 
     if (type === 'select') {
       meta.options = Array.from((el as HTMLSelectElement).options)

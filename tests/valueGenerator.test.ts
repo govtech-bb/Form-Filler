@@ -99,6 +99,57 @@ describe('generateValue', () => {
     }));
     expect(result).toBeNull();
   });
+
+  describe('date triplet (datePart / dateGroupId)', () => {
+    it('emits day in 1..31, month in 1..12, year in the past, sharing one date', () => {
+      const cache = new Map<string, Date>();
+      const groupId = 'g1';
+      const day = generateValue(
+        field({ type: 'number', datePart: 'day', dateGroupId: groupId }),
+        cache,
+      );
+      const month = generateValue(
+        field({ type: 'number', datePart: 'month', dateGroupId: groupId }),
+        cache,
+      );
+      const year = generateValue(
+        field({ type: 'number', datePart: 'year', dateGroupId: groupId }),
+        cache,
+      );
+
+      expect(day).toMatch(/^\d{1,2}$/);
+      expect(month).toMatch(/^\d{1,2}$/);
+      expect(year).toMatch(/^\d{4}$/);
+
+      const d = Number(day), m = Number(month), y = Number(year);
+      expect(d).toBeGreaterThanOrEqual(1);
+      expect(d).toBeLessThanOrEqual(31);
+      expect(m).toBeGreaterThanOrEqual(1);
+      expect(m).toBeLessThanOrEqual(12);
+
+      // Reconstruct the date — must be valid and in the past
+      const reconstructed = new Date(Date.UTC(y, m - 1, d));
+      expect(reconstructed.getUTCFullYear()).toBe(y);
+      expect(reconstructed.getUTCMonth()).toBe(m - 1);
+      expect(reconstructed.getUTCDate()).toBe(d);
+      expect(reconstructed.getTime()).toBeLessThan(Date.now());
+    });
+
+    it('separate dateGroupIds get separate dates', () => {
+      const cache = new Map<string, Date>();
+      const yearA = generateValue(
+        field({ type: 'number', datePart: 'year', dateGroupId: 'a' }),
+        cache,
+      );
+      const yearB = generateValue(
+        field({ type: 'number', datePart: 'year', dateGroupId: 'b' }),
+        cache,
+      );
+      expect(cache.size).toBe(2);
+      expect(typeof yearA).toBe('string');
+      expect(typeof yearB).toBe('string');
+    });
+  });
 });
 
 describe('generateForPattern', () => {

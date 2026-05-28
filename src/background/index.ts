@@ -4,9 +4,14 @@ import {
   FieldMeta,
   FillInstruction,
   FillResult,
+  MessageFromContent,
   MessageToBackground,
   StoredSettings,
 } from '../shared/types';
+
+// Keyed by tabId — stores the instructions applied by the last fill so the
+// VALIDATION_ERRORS_APPEARED handler can compute corrections.
+const pendingCorrections = new Map<number, FillInstruction[]>();
 
 async function getSettings(): Promise<StoredSettings> {
   const r = await chrome.storage.sync.get(['claudeApiKey', 'lastFillResult']);
@@ -113,9 +118,13 @@ async function runFill(tabId: number): Promise<FillResult> {
   const instructions: FillInstruction[] = [];
   const aiNeeded: FieldMeta[] = [];
 
+  // Shared per-fill cache so the three Day/Month/Year inputs of a date triplet
+  // resolve to parts of the same generated date.
+  const dateGroupCache = new Map<string, Date>();
+
   // 2. Generate values — generateValue handles pattern validation internally
   for (const field of fields) {
-    const value = generateValue(field);
+    const value = generateValue(field, dateGroupCache);
     if (value !== null) {
       instructions.push({ fieldId: field.id, value });
     } else {
@@ -143,8 +152,12 @@ async function runFill(tabId: number): Promise<FillResult> {
     }
   }
 
-  // 4. Apply values
-  await chrome.tabs.sendMessage(tabId, { type: 'APPLY_VALUES', instructions });
+  // 4. Apply values; content script fires blur + installs MutationObserver to
+  //    auto-correct when validation errors appear (blur-triggered OR submit-triggered)
+  await chrome.tabs.sendMessage(tabId, { type: 'APPLY_VALUES', instructions, fireValidation: true });
+
+  // Store so VALIDATION_ERRORS_APPEARED can apply corrections for this tab
+  pendingCorrections.set(tabId, instructions);
 
   const result: FillResult = {
     fieldsFilled: instructions.length,
@@ -213,5 +226,43 @@ chrome.runtime.onMessage.addListener(
       }
     })();
     return true; // keep channel open for async response
+  }
+);
+
+// Content-script message handler — fires when MutationObserver detects validation errors
+chrome.runtime.onMessage.addListener(
+  (message: MessageFromContent, sender, sendResponse) => {
+    if (message.type !== 'VALIDATION_ERRORS_APPEARED') return false;
+
+    const tabId = sender.tab?.id;
+    if (!tabId) { sendResponse({}); return false; }
+
+    const stored = pendingCorrections.get(tabId);
+    if (!stored) { sendResponse({}); return false; }
+
+    (async () => {
+      const appliedByFieldId = new Map(stored.map((i) => [i.fieldId, i.value]));
+      const corrections: FillInstruction[] = [];
+      const dateGroupCache = new Map<string, Date>();
+
+      for (const field of message.fields) {
+        if (!field.hint) continue;
+        const newValue = generateValue(field, dateGroupCache);
+        if (newValue === null) continue;
+        // Only correct if the hint-informed value differs from what was applied
+        if (String(newValue) !== String(appliedByFieldId.get(field.id) ?? '')) {
+          corrections.push({ fieldId: field.id, value: newValue });
+        }
+      }
+
+      if (corrections.length > 0) {
+        await chrome.tabs.sendMessage(tabId, { type: 'APPLY_VALUES', instructions: corrections });
+      }
+
+      pendingCorrections.delete(tabId);
+      sendResponse({});
+    })();
+
+    return true; // async response
   }
 );
