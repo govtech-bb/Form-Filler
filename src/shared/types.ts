@@ -14,8 +14,10 @@ export interface FieldMeta {
   groupLabel?: string;  // group question (radio fieldset <legend>), distinct from per-option label
   pattern?: string;     // HTML pattern attribute (regex, no anchors)
   maxLength?: number;   // HTML maxlength attribute
+  minLength?: number;   // HTML minlength attribute
   min?: string;         // HTML min attribute (number/date inputs)
   max?: string;         // HTML max attribute (number/date inputs)
+  required?: boolean;   // required / aria-required="true"
   hint?: string;        // hint/help text near the field
   datePart?: 'day' | 'month' | 'year';  // member of a split date triplet
   dateGroupId?: string;                  // shared across the three triplet siblings
@@ -36,12 +38,20 @@ export interface FillResult {
 export interface StoredSettings {
   claudeApiKey: string;
   lastFillResult?: FillResult;
+  // When on, fills with deliberately-invalid data to exercise form validation.
+  testValidationMode?: boolean;
+  // Which violation step the invalid-data cycle is on; incremented after each
+  // invalid-mode fill so repeated fills walk through every constraint per field.
+  invalidCycleStep?: number;
 }
+
+export type ToastState = 'loading' | 'success' | 'error';
 
 // Messages sent TO content script
 export type MessageToContent =
   | { type: 'EXTRACT_FIELDS' }
-  | { type: 'APPLY_VALUES'; instructions: FillInstruction[]; fireValidation?: boolean };
+  | { type: 'APPLY_VALUES'; instructions: FillInstruction[]; fireValidation?: boolean }
+  | { type: 'TOAST'; state: ToastState; text: string };
 
 // Messages sent FROM content script back to background
 export interface ExtractFieldsResponse {
@@ -57,7 +67,8 @@ export type MessageToBackground =
   | { type: 'FILL_REQUEST' }
   | { type: 'SAVE_API_KEY'; key: string }
   | { type: 'GET_SETTINGS' }
-  | { type: 'CLEAR_AI_CACHE' };
+  | { type: 'CLEAR_AI_CACHE' }
+  | { type: 'SET_TEST_MODE'; enabled: boolean };
 
 // Messages sent FROM background to popup
 export type MessageFromBackground =

@@ -105,6 +105,14 @@
     }
     .save-btn:hover { background: #7c73ff; }
     .save-feedback { font-size: 10px; color: #57cc99; text-align: center; margin-top: 4px; display: none; }
+    .toggle-row { display: flex; align-items: center; gap: 8px; cursor: pointer; margin-top: 4px; }
+    .toggle-row input { accent-color: #e0b84f; width: 14px; height: 14px; cursor: pointer; }
+    .toggle-text { font-size: 12px; color: #ccc; }
+    .test-badge {
+      margin-top: 8px; padding: 6px 8px; border-radius: 4px;
+      background: #3a2a0d; border: 1px solid #6a5a2d;
+      color: #e0b84f; font-size: 11px; text-align: center; font-weight: 600;
+    }
   </style>
 </head>
 <body>
@@ -118,6 +126,7 @@
     <div class="body">
       <button id="btn-fill" class="btn-fill">⚡ Fill All Fields</button>
       <p class="hint">or press Ctrl+Shift+F</p>
+      <div id="test-mode-badge" class="test-badge" style="display:none">⚠️ Test validation mode ON</div>
       <div id="status-box" class="status-box">
         <div class="status-label">Last fill</div>
         <div id="status-text" class="status-text">No fills yet</div>
@@ -157,6 +166,14 @@
       </div>
       <button id="btn-save-key" class="save-btn">Save API Key</button>
       <div id="save-feedback" class="save-feedback">Saved ✓</div>
+      <div>
+        <div class="field-label">Test Validation Mode</div>
+        <label class="toggle-row">
+          <input type="checkbox" id="test-mode-toggle" />
+          <span class="toggle-text">Fill with invalid data</span>
+        </label>
+        <div class="field-hint">Fills fields with data that should fail validation, cycling a different broken rule each fill. No API key needed.</div>
+      </div>
       <button id="btn-clear-cache" class="btn-danger">🗑 Clear AI Cache</button>
     </div>
   </div>

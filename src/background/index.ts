@@ -1,4 +1,4 @@
-import { generateValue, generateGenericText } from '../shared/valueGenerator';
+import { generateValue, generateGenericText, generateInvalidValue } from '../shared/valueGenerator';
 import { isConfirmationLabel, normalizeLabel } from '../shared/rules';
 import { pollForFields } from './poll';
 import {
@@ -9,6 +9,7 @@ import {
   MessageFromContent,
   MessageToBackground,
   StoredSettings,
+  ToastState,
 } from '../shared/types';
 
 // Keyed by tabId — stores the instructions applied by the last fill so the
@@ -16,8 +17,15 @@ import {
 const pendingCorrections = new Map<number, FillInstruction[]>();
 
 async function getSettings(): Promise<StoredSettings> {
-  const r = await chrome.storage.sync.get(['claudeApiKey', 'lastFillResult']);
-  return { claudeApiKey: r.claudeApiKey ?? '', lastFillResult: r.lastFillResult };
+  const r = await chrome.storage.sync.get([
+    'claudeApiKey', 'lastFillResult', 'testValidationMode', 'invalidCycleStep',
+  ]);
+  return {
+    claudeApiKey: r.claudeApiKey ?? '',
+    lastFillResult: r.lastFillResult,
+    testValidationMode: r.testValidationMode ?? false,
+    invalidCycleStep: r.invalidCycleStep ?? 0,
+  };
 }
 
 async function getAiValues(
@@ -103,11 +111,52 @@ async function ensureContentScript(tabId: number): Promise<void> {
   await chrome.scripting.executeScript({ target: { tabId }, files });
 }
 
+// Fire-and-forget toast in the page; never let a failed toast break the fill.
+function sendToast(tabId: number, state: ToastState, text: string): void {
+  chrome.tabs.sendMessage(tabId, { type: 'TOAST', state, text }).catch(() => {});
+}
+
 async function extractFromTab(tabId: number): Promise<FieldMeta[] | null> {
   const response = (await chrome.tabs
     .sendMessage(tabId, { type: 'EXTRACT_FIELDS' })
     .catch(() => null)) as ExtractFieldsResponse | null;
   return response?.fields ?? null;
+}
+
+// Test validation mode: fill every field with data that should FAIL validation,
+// then fire the form's validators so the errors surface. Auto-correction is
+// intentionally NOT registered, so the bad data is left in place. The cycle step
+// advances each fill so successive fills break a different constraint per field.
+async function runInvalidFill(
+  tabId: number,
+  fields: FieldMeta[],
+  step: number
+): Promise<FillResult> {
+  sendToast(tabId, 'loading', `Filling with invalid data (pass ${step + 1})…`);
+
+  const instructions: FillInstruction[] = [];
+  for (const field of fields) {
+    const value = generateInvalidValue(field, step);
+    if (value !== null) instructions.push({ fieldId: field.id, value });
+  }
+
+  // fireValidation surfaces the errors; clearing pendingCorrections ensures the
+  // VALIDATION_ERRORS_APPEARED handler won't "fix" the values we deliberately broke.
+  await chrome.tabs.sendMessage(tabId, { type: 'APPLY_VALUES', instructions, fireValidation: true });
+  pendingCorrections.delete(tabId);
+
+  // Advance the cycle so the next fill targets the next constraint per field.
+  await chrome.storage.sync.set({ invalidCycleStep: step + 1 });
+
+  const result: FillResult = {
+    fieldsFilled: instructions.length,
+    fieldsSkipped: fields.length - instructions.length,
+    aiFieldCount: 0,
+    timestamp: Date.now(),
+  };
+  await chrome.storage.sync.set({ lastFillResult: result });
+  sendToast(tabId, 'success', `✓ ${result.fieldsFilled} fields filled (invalid mode)`);
+  return result;
 }
 
 async function runFill(tabId: number): Promise<FillResult> {
@@ -121,6 +170,17 @@ async function runFill(tabId: number): Promise<FillResult> {
     fields = await pollForFields(() => extractFromTab(tabId));
     if (!fields) throw new Error('Failed to extract fields — try reloading the tab');
   }
+
+  const settings = await getSettings();
+
+  // Test validation mode fills with deliberately-invalid data instead.
+  if (settings.testValidationMode) {
+    return runInvalidFill(tabId, fields, settings.invalidCycleStep ?? 0);
+  }
+
+  // Content script is confirmed alive now — show the loading toast, which stays
+  // up through the (possibly slow) AI call until values are applied.
+  sendToast(tabId, 'loading', 'Filling form…');
 
   const instructions: FillInstruction[] = [];
   const aiNeeded: FieldMeta[] = [];
@@ -155,7 +215,6 @@ async function runFill(tabId: number): Promise<FillResult> {
   // 3. AI fallback for unmatched text fields
   let aiFieldCount = 0;
   if (aiNeeded.length > 0) {
-    const settings = await getSettings();
     const uniqueLabels = [...new Set(aiNeeded.map((f) => f.label))];
     const aiValues = await getAiValues(uniqueLabels, settings.claudeApiKey, aiNeeded);
 
@@ -192,6 +251,10 @@ async function runFill(tabId: number): Promise<FillResult> {
   };
 
   await chrome.storage.sync.set({ lastFillResult: result });
+
+  const aiStr = aiFieldCount > 0 ? ` (${aiFieldCount} via AI)` : '';
+  sendToast(tabId, 'success', `✓ ${result.fieldsFilled} fields filled${aiStr}`);
+
   return result;
 }
 
@@ -204,6 +267,7 @@ chrome.commands.onCommand.addListener(async (command) => {
     await runFill(tab.id);
   } catch (e) {
     console.error('[FormFiller] Fill failed:', e);
+    sendToast(tab.id, 'error', 'Fill failed — try reloading the tab');
   }
 });
 
@@ -223,6 +287,7 @@ chrome.runtime.onMessage.addListener(
             sendResponse({ type: 'FILL_COMPLETE', result });
           } catch (e) {
             console.error('[FormFiller] runFill error:', e);
+            sendToast(tab.id, 'error', 'Fill failed — try reloading the tab');
             sendResponse({ type: 'FILL_ERROR', error: String(e) });
           }
           break;
@@ -230,6 +295,11 @@ chrome.runtime.onMessage.addListener(
 
         case 'SAVE_API_KEY':
           await chrome.storage.sync.set({ claudeApiKey: message.key });
+          sendResponse({ type: 'SETTINGS', settings: await getSettings() });
+          break;
+
+        case 'SET_TEST_MODE':
+          await chrome.storage.sync.set({ testValidationMode: message.enabled });
           sendResponse({ type: 'SETTINGS', settings: await getSettings() });
           break;
 

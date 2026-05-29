@@ -291,11 +291,21 @@ export function extractFields(doc: Document = document): FieldMeta[] {
       if (n > 0) meta.maxLength = n;
     }
 
+    const minLengthAttr = el.getAttribute('minlength');
+    if (minLengthAttr !== null) {
+      const n = parseInt(minLengthAttr, 10);
+      if (n > 0) meta.minLength = n;
+    }
+
     const minAttr = el.getAttribute('min');
     if (minAttr !== null) meta.min = minAttr;
 
     const maxAttr = el.getAttribute('max');
     if (maxAttr !== null) meta.max = maxAttr;
+
+    if (el.hasAttribute('required') || el.getAttribute('aria-required') === 'true') {
+      meta.required = true;
+    }
 
     const hint = resolveHint(el, doc);
     if (hint) meta.hint = hint;

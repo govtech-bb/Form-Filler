@@ -1,5 +1,6 @@
 import { extractFields } from '../shared/fieldExtractor';
 import { FillInstruction, FillResult, MessageToContent } from '../shared/types';
+import { showToast } from './toast';
 
 // Use native setters so React/Vue controlled inputs pick up the change
 const nativeInputSetter = Object.getOwnPropertyDescriptor(
@@ -148,6 +149,12 @@ if (typeof chrome !== 'undefined' && chrome.runtime?.onMessage) {
     (message: MessageToContent, _sender, sendResponse) => {
     if (message.type === 'EXTRACT_FIELDS') {
       sendResponse({ fields: extractFields(document) });
+      return false;
+    }
+
+    if (message.type === 'TOAST') {
+      showToast(message.state, message.text);
+      sendResponse({ ok: true });
       return false;
     }
 

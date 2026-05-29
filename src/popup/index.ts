@@ -30,6 +30,10 @@ function renderSettings(settings: StoredSettings) {
     keyStatus.className = 'key-status unset';
     keyInput.placeholder = 'sk-ant-...';
   }
+
+  const enabled = settings.testValidationMode === true;
+  (document.getElementById('test-mode-toggle') as HTMLInputElement).checked = enabled;
+  document.getElementById('test-mode-badge')!.style.display = enabled ? 'block' : 'none';
 }
 
 function renderLastFill(result: FillResult | undefined) {
@@ -111,6 +115,17 @@ async function init() {
       }
     } catch (e) {
       console.error('[FormFiller] Save API key error:', e);
+    }
+  });
+
+  // Toggle test validation mode
+  document.getElementById('test-mode-toggle')!.addEventListener('change', async (e) => {
+    const enabled = (e.target as HTMLInputElement).checked;
+    try {
+      const res = await sendToBackground({ type: 'SET_TEST_MODE', enabled });
+      if (res?.type === 'SETTINGS') renderSettings(res.settings);
+    } catch (err) {
+      console.error('[FormFiller] Set test mode error:', err);
     }
   });
 
