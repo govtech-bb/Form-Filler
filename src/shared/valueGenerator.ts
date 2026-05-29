@@ -1,5 +1,5 @@
 import { FieldMeta } from './types';
-import { matchRule } from './rules';
+import { matchRule, normalizeLabel } from './rules';
 import { faker } from '@faker-js/faker';
 
 /**
@@ -138,8 +138,17 @@ export function generateValue(
     case 'checkbox':
       return true;
 
-    case 'radio':
-      return field.options?.[0] ?? null;
+    case 'radio': {
+      if (!field.options || field.options.length === 0) return null;
+      // "Add another?"-type groups default to No so we don't expand the form with
+      // extra (likely required) fields that then fail validation on the first pass.
+      const question = normalizeLabel(field.groupLabel ?? field.label);
+      if (/\badd (another|more)\b/.test(question)) {
+        const no = field.options.find((o) => /^(no|false|n|0)$/i.test(o));
+        if (no) return no;
+      }
+      return field.options[0];
+    }
 
     case 'date': {
       const d = faker.date.past({ years: 5 });

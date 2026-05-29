@@ -42,6 +42,42 @@ describe('generateValue', () => {
     expect(generateValue(field({ type: 'radio' }))).toBeNull();
   });
 
+  it('defaults an "Add another?" radio group to its No option', () => {
+    const f = field({
+      type: 'radio',
+      groupLabel: 'Do you want to add another dependant?',
+      options: ['yes', 'no'],
+    });
+    expect(generateValue(f)).toBe('no');
+  });
+
+  it('matches the No option by "false" value for an add-more group', () => {
+    const f = field({
+      type: 'radio',
+      groupLabel: 'Add more children',
+      options: ['true', 'false'],
+    });
+    expect(generateValue(f)).toBe('false');
+  });
+
+  it('leaves an "Add another?" group on the first option when no No option exists', () => {
+    const f = field({
+      type: 'radio',
+      groupLabel: 'Add another contact',
+      options: ['email', 'phone'],
+    });
+    expect(generateValue(f)).toBe('email');
+  });
+
+  it('does not force No on a non-add-another radio group', () => {
+    const f = field({
+      type: 'radio',
+      groupLabel: 'Are you a citizen?',
+      options: ['yes', 'no'],
+    });
+    expect(generateValue(f)).toBe('yes');
+  });
+
   it('returns a YYYY-MM-DD string for date type', () => {
     const result = generateValue(field({ type: 'date' }));
     expect(result).toMatch(/^\d{4}-\d{2}-\d{2}$/);

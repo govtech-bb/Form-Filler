@@ -94,6 +94,22 @@ describe('extractFields', () => {
     expect(fields[0].options).toEqual(['male', 'female', 'other']);
   });
 
+  it('captures the radio group question from the fieldset <legend> as groupLabel', () => {
+    const doc = makeDoc(`
+      <fieldset>
+        <legend>Do you want to add another dependant?</legend>
+        <label for="aa-yes">Yes</label>
+        <input type="radio" id="aa-yes" name="addAnother" value="yes" />
+        <label for="aa-no">No</label>
+        <input type="radio" id="aa-no" name="addAnother" value="no" />
+      </fieldset>
+    `);
+    const fields = extractFields(doc);
+    expect(fields).toHaveLength(1);
+    expect(fields[0].groupLabel).toBe('Do you want to add another dependant?');
+    expect(fields[0].options).toEqual(['yes', 'no']);
+  });
+
   it('extracts every checkbox in a shared-name group individually', () => {
     const doc = makeDoc(`
       <input type="checkbox" name="interests" value="sports" />

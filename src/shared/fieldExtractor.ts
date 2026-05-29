@@ -127,6 +127,24 @@ function resolveLabel(el: HTMLElement, doc: Document): string {
   );
 }
 
+/**
+ * The group question for a radio set, which lives in the enclosing
+ * <fieldset>'s <legend> (or the fieldset's aria-labelledby) — distinct from each
+ * radio's own per-option label ("Yes"/"No"). Returns '' when not in a fieldset.
+ */
+function resolveGroupLabel(el: HTMLElement, doc: Document): string {
+  const fieldset = el.closest('fieldset');
+  if (!fieldset) return '';
+
+  const labelledBy = fieldset.getAttribute('aria-labelledby');
+  if (labelledBy) {
+    const text = doc.getElementById(labelledBy)?.textContent?.trim();
+    if (text) return text;
+  }
+
+  return fieldset.querySelector(':scope > legend')?.textContent?.trim() ?? '';
+}
+
 let _uidCounter = 0;
 
 type DatePart = 'day' | 'month' | 'year';
@@ -302,6 +320,8 @@ export function extractFields(doc: Document = document): FieldMeta[] {
       meta.options = Array.from(
         doc.querySelectorAll<HTMLInputElement>(`input[type="radio"][name="${elementName}"]`)
       ).map((r) => r.value);
+      const groupLabel = resolveGroupLabel(el, doc);
+      if (groupLabel) meta.groupLabel = groupLabel;
     }
 
     if (type === 'checkbox' && elementName) {

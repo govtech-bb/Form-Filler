@@ -11,6 +11,7 @@ export interface FieldMeta {
   type: FieldType;
   options?: string[];   // select options or radio values
   groupName?: string;   // name attribute for radio/checkbox groups
+  groupLabel?: string;  // group question (radio fieldset <legend>), distinct from per-option label
   pattern?: string;     // HTML pattern attribute (regex, no anchors)
   maxLength?: number;   // HTML maxlength attribute
   min?: string;         // HTML min attribute (number/date inputs)
