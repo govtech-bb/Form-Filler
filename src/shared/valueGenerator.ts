@@ -90,6 +90,40 @@ function applyMaxLength(value: string, maxLength?: number): string {
 }
 
 const TEXT_LIKE_TYPES = ['text', 'textarea', 'email', 'tel', 'url', 'password', 'search'];
+// Free-prose types that can be padded with filler text to satisfy a minimum length.
+const PROSE_TYPES = ['text', 'textarea', 'search'];
+
+/**
+ * Parses a minimum-character requirement out of hint/error text, e.g.
+ * "Please write at least 20 characters" → 20, "minimum of 8 characters" → 8.
+ * Many forms enforce this in JS only (no `minlength` attribute), so the number
+ * is often only discoverable from the hint or validation message.
+ */
+export function parseMinChars(text: string | undefined): number | null {
+  if (!text) return null;
+  const m =
+    text.match(/(?:at least|minimum(?:\s+of)?|min\.?|no fewer than)\s+(\d{1,4})\s*(?:characters|chars|letters)/i) ??
+    text.match(/(\d{1,4})\s*(?:characters|chars|letters)\s*(?:or more|minimum|at least)/i);
+  if (!m) return null;
+  const n = parseInt(m[1], 10);
+  return n > 0 && n <= 5000 ? n : null;
+}
+
+/** Effective minimum length: the larger of the HTML minlength and any hint-stated minimum. */
+function effectiveMinChars(field: FieldMeta): number {
+  return Math.max(field.minLength ?? 0, parseMinChars(field.hint) ?? 0);
+}
+
+/** Filler prose of at least `minChars`, capped at `maxLength` if given. */
+function loremAtLeast(minChars: number, maxLength?: number): string {
+  let value = faker.lorem.sentence();
+  let guard = 0;
+  while (value.length < minChars && guard < 50) {
+    value += ' ' + faker.lorem.sentence();
+    guard++;
+  }
+  return applyMaxLength(value, maxLength);
+}
 
 /**
  * Last-resort value for a free-text field whose label matched no rule and that AI
@@ -101,12 +135,21 @@ export function generateGenericText(field: FieldMeta): string | null {
   if (!TEXT_LIKE_TYPES.includes(field.type)) return null;
   if (field.pattern) return null;
 
+  const minChars = effectiveMinChars(field);
+
   let value: string;
   switch (field.type) {
-    case 'email': value = faker.internet.email(); break;
-    case 'url': value = faker.internet.url(); break;
-    case 'password': value = 'TestPassword123!'; break;
-    default: value = faker.lorem.words(2);
+    case 'email': return applyMaxLength(faker.internet.email(), field.maxLength);
+    case 'url': return applyMaxLength(faker.internet.url(), field.maxLength);
+    case 'password': return applyMaxLength('TestPassword123!', field.maxLength);
+    // Textareas read as paragraphs; single-line text gets a sentence. Both are far
+    // longer than the old two-word filler, so common "at least N characters" rules pass.
+    case 'textarea': value = faker.lorem.sentences(2); break;
+    default: value = faker.lorem.sentence();
+  }
+
+  if (PROSE_TYPES.includes(field.type) && value.length < minChars) {
+    value = loremAtLeast(minChars, field.maxLength);
   }
   return applyMaxLength(value, field.maxLength);
 }
@@ -303,8 +346,13 @@ export function generateValue(
       const candidates = [hintValue, ruleValue].filter((v): v is string => v !== null);
 
       if (!field.pattern) {
-        const winner = candidates[0] ?? null;
-        return winner !== null ? applyMaxLength(winner, field.maxLength) : null;
+        if (candidates[0]) return applyMaxLength(candidates[0], field.maxLength);
+        // No label/hint-example match, but a minimum length is stated (e.g. a
+        // "write at least 20 characters" validation error) — fill enough prose to
+        // satisfy it rather than leaving it short. Otherwise defer to AI/generic.
+        const minChars = effectiveMinChars(field);
+        if (minChars > 0) return loremAtLeast(minChars, field.maxLength);
+        return null;
       }
 
       // Pattern present — pick the first candidate that satisfies it

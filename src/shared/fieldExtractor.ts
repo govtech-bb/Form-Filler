@@ -33,6 +33,21 @@ function resolveHint(el: HTMLElement, doc: Document): string {
     if (text) return text;
   }
 
+  // Error-summary link that targets this field by id (GOV.UK pattern): the
+  // message lives in a summary box elsewhere on the page, linked via href="#id".
+  // Carries requirements like "Please write at least 20 characters".
+  if (el.id) {
+    const summaryLinks = doc.querySelectorAll<HTMLAnchorElement>(
+      '[role="alert"] a[href], [data-error-summary] a[href], .error-summary a[href], .govuk-error-summary a[href]'
+    );
+    for (const link of summaryLinks) {
+      if (link.getAttribute('href') === `#${el.id}`) {
+        const text = link.textContent?.trim();
+        if (text) return text;
+      }
+    }
+  }
+
   const matchesHintEl = (node: Element): boolean => {
     const tag = node.tagName.toLowerCase();
     const cls = (node.className ?? '').toLowerCase();

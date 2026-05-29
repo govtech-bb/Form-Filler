@@ -16,6 +16,22 @@ describe('extractFields', () => {
     expect(fields[0].type).toBe('text');
   });
 
+  it('uses an error-summary message (linked by href) as the field hint', () => {
+    const doc = makeDoc(`
+      <div data-error-summary="true" role="alert">
+        <h2>There is a problem</h2>
+        <ul><li><a href="#motivation">Please write at least 20 characters</a></li></ul>
+      </div>
+      <div data-field="true">
+        <label for="motivation">Why are you applying?</label>
+        <textarea id="motivation"></textarea>
+      </div>
+    `);
+    const fields = extractFields(doc);
+    expect(fields).toHaveLength(1);
+    expect(fields[0].hint).toBe('Please write at least 20 characters');
+  });
+
   it('extracts label via <label for="id">', () => {
     const doc = makeDoc(`
       <label for="email">Email Address</label>

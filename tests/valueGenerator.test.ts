@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generateValue, generateForPattern, generateFromHintExample, generateGenericText } from '../src/shared/valueGenerator';
+import { generateValue, generateForPattern, generateFromHintExample, generateGenericText, parseMinChars } from '../src/shared/valueGenerator';
 import { FieldMeta } from '../src/shared/types';
 
 function field(overrides: Partial<FieldMeta>): FieldMeta {
@@ -218,6 +218,54 @@ describe('generateGenericText', () => {
 
   it('returns null when a pattern is present (avoids invalid values)', () => {
     expect(generateGenericText(field({ type: 'text', pattern: '[0-9]{6}' }))).toBeNull();
+  });
+
+  it('fills a textarea with paragraph-length prose, not two words', () => {
+    const result = generateGenericText(field({ type: 'textarea', label: 'Why are you applying?' })) as string;
+    expect(result.length).toBeGreaterThan(20);
+  });
+
+  it('meets a minimum length stated in the hint', () => {
+    const result = generateGenericText(field({
+      type: 'textarea',
+      hint: 'Please write at least 50 characters',
+    })) as string;
+    expect(result.length).toBeGreaterThanOrEqual(50);
+  });
+
+  it('meets a minlength attribute', () => {
+    const result = generateGenericText(field({ type: 'text', minLength: 40 })) as string;
+    expect(result.length).toBeGreaterThanOrEqual(40);
+  });
+});
+
+describe('parseMinChars', () => {
+  it('parses "at least N characters"', () => {
+    expect(parseMinChars('Please write at least 20 characters')).toBe(20);
+  });
+  it('parses "minimum of N characters"', () => {
+    expect(parseMinChars('Enter a minimum of 8 characters')).toBe(8);
+  });
+  it('parses "N characters or more"', () => {
+    expect(parseMinChars('Use 12 characters or more')).toBe(12);
+  });
+  it('returns null when no requirement is stated', () => {
+    expect(parseMinChars('Tell us a bit about yourself')).toBeNull();
+    expect(parseMinChars(undefined)).toBeNull();
+  });
+});
+
+describe('generateValue — minimum-length fields', () => {
+  it('fills enough prose when a hint states a minimum and nothing else matches', () => {
+    const f = field({ type: 'textarea', label: 'Why are you applying?', hint: 'Please write at least 20 characters' });
+    const result = generateValue(f) as string;
+    expect(typeof result).toBe('string');
+    expect(result.length).toBeGreaterThanOrEqual(20);
+  });
+
+  it('still returns null for an unmatched free-text field with no minimum', () => {
+    const f = field({ type: 'textarea', label: 'Anything else?' });
+    expect(generateValue(f)).toBeNull();
   });
 });
 

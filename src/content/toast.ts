@@ -1,7 +1,7 @@
 import { ToastState } from '../shared/types';
 
 // A single in-page toast, rendered into a Shadow DOM so the host page's CSS
-// can't reach it. Mirrors the popup's dark theme (bg #1a1a2e, accent #6c63ff).
+// can't reach it. Mirrors the popup's dark theme (bg #1a1a2e, dark-blue accent).
 
 const HOST_ID = 'form-filler-toast-host';
 const AUTO_HIDE_MS = 2000; // success toasts fade out after this; errors stay until dismissed
@@ -38,41 +38,41 @@ function getOrCreate(): ToastRefs {
       gap: 10px;
       min-width: 180px;
       max-width: 320px;
-      padding: 11px 13px;
-      background: #1a1a2e;
-      border: 1px solid #2a2a4a;
+      padding: 12px 14px;
+      background: #16162b;
+      border: 1px solid #34345c;
       border-radius: 8px;
       box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
-      color: #ccc;
+      color: #f0f0f6;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 13px;
+      font-size: 14px;
       opacity: 0;
       transform: translateY(-8px);
       transition: opacity 0.18s ease, transform 0.18s ease;
     }
     .card.visible { opacity: 1; transform: translateY(0); }
-    .card.success { border-color: #2d6a4f; }
-    .card.error { border-color: #6a2d2d; }
-    .icon { width: 16px; height: 16px; flex: none; display: flex; align-items: center; justify-content: center; }
-    .text { flex: 1; line-height: 1.3; }
+    .card.success { border-color: #46a87d; }
+    .card.error { border-color: #d06464; }
+    .icon { width: 18px; height: 18px; flex: none; display: flex; align-items: center; justify-content: center; }
+    .text { flex: 1; line-height: 1.4; }
     .spinner {
-      width: 14px; height: 14px;
-      border: 2px solid #3a3a6a;
-      border-top-color: #6c63ff;
+      width: 16px; height: 16px;
+      border: 2px solid #44446e;
+      border-top-color: #9db4ff;
       border-radius: 50%;
       animation: ff-spin 0.7s linear infinite;
     }
-    .check { color: #57cc99; font-size: 15px; font-weight: 700; }
-    .cross { color: #cc5757; font-size: 15px; font-weight: 700; }
+    .check { color: #6fe3aa; font-size: 17px; font-weight: 700; }
+    .cross { color: #ff9292; font-size: 17px; font-weight: 700; }
     .close {
       flex: none;
       background: none; border: none;
-      color: #777; cursor: pointer;
-      font-size: 15px; line-height: 1;
+      color: #b8b8d0; cursor: pointer;
+      font-size: 17px; line-height: 1;
       padding: 0 2px;
       display: none;
     }
-    .close:hover { color: #ccc; }
+    .close:hover { color: #f0f0f6; }
     .card.error .close { display: block; }
     @keyframes ff-spin { to { transform: rotate(360deg); } }
   `;
