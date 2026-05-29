@@ -155,6 +155,13 @@ describe('matchRule', () => {
     expect(result).not.toBeNull();
     expect(result!.length).toBeGreaterThan(10);
   });
+
+  it('matches the plural "names" (e.g. "Mother other names") to a name, not lorem', () => {
+    const result = matchRule('Mother other names');
+    expect(result).not.toBeNull();
+    // A person name: letters, spaces, hyphens, apostrophes — no lorem punctuation
+    expect(result!).toMatch(/^[A-Za-z'\- ]+$/);
+  });
 });
 
 describe('isConfirmationLabel', () => {

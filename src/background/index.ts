@@ -4,6 +4,7 @@ import {
   generateInvalidValue,
   activeViolationKinds,
   violationLabel,
+  sanitizeToAllowedChars,
 } from '../shared/valueGenerator';
 import { isConfirmationLabel, normalizeLabel } from '../shared/rules';
 import { pollForFields } from './poll';
@@ -378,10 +379,23 @@ chrome.runtime.onMessage.addListener(
 
       for (const field of message.fields) {
         if (!field.hint) continue;
+        const applied = String(appliedByFieldId.get(field.id) ?? '');
+
+        // Charset-restriction error (e.g. "only letters, hyphens, or apostrophes"):
+        // no HTML attribute carries this rule, so generateValue can't satisfy it.
+        // Repair the value already in the field by stripping disallowed characters.
+        const sanitized = sanitizeToAllowedChars(applied, field.hint);
+        if (sanitized && sanitized !== applied) {
+          corrections.push({ fieldId: field.id, value: sanitized });
+          continue;
+        }
+        if (sanitized) continue; // value already satisfies the stated charset
+        // sanitized is null (no charset rule) or '' (stripped empty) → regenerate
+
         const newValue = generateValue(field, dateGroupCache);
         if (newValue === null) continue;
         // Only correct if the hint-informed value differs from what was applied
-        if (String(newValue) !== String(appliedByFieldId.get(field.id) ?? '')) {
+        if (String(newValue) !== applied) {
           corrections.push({ fieldId: field.id, value: newValue });
         }
       }

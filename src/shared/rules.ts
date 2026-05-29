@@ -200,8 +200,10 @@ const RULES: Rule[] = [
     generate: () => faker.lorem.words(2),
   },
   {
-    // Generic "name" — must be last to avoid shadowing specific name patterns above
-    patterns: [/\bname\b/],
+    // Generic "name(s)" — must be last to avoid shadowing specific name patterns
+    // above. Matches the plural too ("other names", "given names") so name-like
+    // fields get a person name rather than falling through to lorem filler.
+    patterns: [/\bnames?\b/],
     generate: () => faker.person.fullName(),
   },
 ];

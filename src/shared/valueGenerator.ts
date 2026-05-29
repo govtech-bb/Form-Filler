@@ -154,6 +154,52 @@ export function generateGenericText(field: FieldMeta): string | null {
   return applyMaxLength(value, field.maxLength);
 }
 
+// --- Charset-restriction errors --------------------------------------------
+//
+// Some validators reject a value by its characters, e.g. "Name must contain only
+// letters, hyphens, or apostrophes". No HTML attribute carries this — it's only in
+// the rendered error text. We parse the allowed set out of that text so the
+// error-feedback loop can repair the value already in the field.
+
+// Each keyword (and its plurals/synonyms) maps to the characters it permits.
+const CHARSET_KEYWORDS: { re: RegExp; chars: string }[] = [
+  { re: /\b(letters?|alphabetic|alphabet)\b/, chars: 'A-Za-z' },
+  { re: /\b(numbers?|digits?|numeric)\b/, chars: '0-9' },
+  { re: /\b(spaces?|whitespace)\b/, chars: ' ' },
+  { re: /\b(hyphens?|dashes|dash)\b/, chars: '\\-' },
+  { re: /\b(apostrophes?|single quotes?)\b/, chars: "'" },
+  { re: /\b(periods?|full stops?|dots?)\b/, chars: '.' },
+  { re: /\b(commas?)\b/, chars: ',' },
+  { re: /\b(underscores?)\b/, chars: '_' },
+];
+
+/**
+ * Parses an allowed-character restriction out of a validation message such as
+ * "Name must contain only letters, hyphens, or apostrophes" and returns a regex
+ * character-class body (e.g. `A-Za-z\-'`) listing the permitted characters.
+ * Requires the word "only" to anchor the restriction intent, plus at least one
+ * recognized character-class keyword. Returns null otherwise.
+ */
+export function parseAllowedCharset(text: string | undefined): string | null {
+  if (!text) return null;
+  const lower = text.toLowerCase();
+  if (!/\bonly\b/.test(lower)) return null;
+
+  const chars = CHARSET_KEYWORDS.filter((k) => k.re.test(lower)).map((k) => k.chars);
+  return chars.length > 0 ? chars.join('') : null;
+}
+
+/**
+ * Strips characters disallowed by a charset-restriction error out of `value`.
+ * Returns the sanitized string, or null when `text` states no recognizable
+ * charset restriction (so the caller can fall back to other strategies).
+ */
+export function sanitizeToAllowedChars(value: string, text: string | undefined): string | null {
+  const allowed = parseAllowedCharset(text);
+  if (allowed === null) return null;
+  return value.replace(new RegExp(`[^${allowed}]`, 'g'), '');
+}
+
 // --- Test validation mode: deliberately-invalid values ---------------------
 //
 // Each invalid-mode fill targets ONE violation *kind* across the whole form, so

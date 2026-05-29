@@ -46,4 +46,21 @@ describe('applyValues — radio selection', () => {
     expect(checked).not.toBeNull();
     expect(checked!.value).toBe('male');
   });
+
+  it('defaults an "Add another?" value-less radio group to No (gov-bb shape)', () => {
+    // gov-bb radios carry the meaning in the label, not a value attribute
+    // (both report value "on"), and the question lives in the <legend>.
+    fillForm(`
+      <fieldset>
+        <legend>Add another?</legend>
+        <div><input type="radio" id="aa-yes" name="Add Another" checked><label for="aa-yes">Yes</label></div>
+        <div><input type="radio" id="aa-no" name="Add Another"><label for="aa-no">No</label></div>
+      </fieldset>
+    `);
+    const checked = document.querySelector<HTMLInputElement>(
+      'input[name="Add Another"]:checked'
+    );
+    expect(checked).not.toBeNull();
+    expect(checked!.id).toBe('aa-no');
+  });
 });

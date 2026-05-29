@@ -1,4 +1,4 @@
-import { extractFields } from '../shared/fieldExtractor';
+import { extractFields, resolveOptionLabel } from '../shared/fieldExtractor';
 import { FillInstruction, FillResult, MessageToContent } from '../shared/types';
 import { showToast } from './toast';
 
@@ -49,7 +49,14 @@ export function applyValues(instructions: FillInstruction[]): FillResult {
             )
           )
         : [el];
-      const radio = group.find((r) => r.value === want) ?? group[0] ?? el;
+      // Match by value first; fall back to the option's label text, since
+      // value-less radios all report value "on" and are only distinguishable by
+      // label (this is what fieldExtractor stored in `options`).
+      const radio =
+        group.find((r) => r.value === want) ??
+        group.find((r) => resolveOptionLabel(r, document) === want) ??
+        group[0] ??
+        el;
       if (!radio.checked) {
         radio.click(); // selects this radio, deselects others, triggers framework events
       }

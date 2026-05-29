@@ -123,7 +123,22 @@ describe('extractFields', () => {
     const fields = extractFields(doc);
     expect(fields).toHaveLength(1);
     expect(fields[0].groupLabel).toBe('Do you want to add another dependant?');
-    expect(fields[0].options).toEqual(['yes', 'no']);
+    // Options are the option label text (preferred over the value attribute)
+    expect(fields[0].options).toEqual(['Yes', 'No']);
+  });
+
+  it('uses label text for options when radios have no value attribute', () => {
+    const doc = makeDoc(`
+      <fieldset>
+        <legend>Add another?</legend>
+        <input type="radio" id="aa-yes" name="Add Another" />
+        <label for="aa-yes">Yes</label>
+        <input type="radio" id="aa-no" name="Add Another" />
+        <label for="aa-no">No</label>
+      </fieldset>
+    `);
+    const fields = extractFields(doc);
+    expect(fields[0].options).toEqual(['Yes', 'No']);
   });
 
   it('extracts every checkbox in a shared-name group individually', () => {

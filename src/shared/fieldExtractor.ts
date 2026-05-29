@@ -160,6 +160,35 @@ function resolveGroupLabel(el: HTMLElement, doc: Document): string {
   return fieldset.querySelector(':scope > legend')?.textContent?.trim() ?? '';
 }
 
+/**
+ * The label text for a single radio/checkbox option — the human-meaningful
+ * identifier when the `value` attribute is absent or uninformative (frameworks
+ * like gov-bb's render value-less radios that all report value "on"). Returns ''
+ * when the option has no associated label, so callers can fall back to `value`.
+ * Unlike `resolveLabel`, this deliberately omits the name/id/sibling fallbacks,
+ * which are not option-specific.
+ */
+export function resolveOptionLabel(el: HTMLElement, doc: Document): string {
+  const aria = el.getAttribute('aria-label')?.trim();
+  if (aria) return aria;
+
+  const id = el.id;
+  if (id) {
+    const text = doc.querySelector<HTMLLabelElement>(`label[for="${id}"]`)?.textContent?.trim();
+    if (text) return text;
+  }
+
+  const parentLabel = el.closest('label');
+  if (parentLabel) {
+    const clone = parentLabel.cloneNode(true) as HTMLElement;
+    clone.querySelectorAll('input,select,textarea').forEach((n) => n.remove());
+    const text = clone.textContent?.trim();
+    if (text) return text;
+  }
+
+  return '';
+}
+
 let _uidCounter = 0;
 
 type DatePart = 'day' | 'month' | 'year';
@@ -342,9 +371,12 @@ export function extractFields(doc: Document = document): FieldMeta[] {
 
     if (type === 'radio') {
       meta.groupName = elementName;
+      // Prefer each option's label text over its `value`: value-less radios all
+      // report "on", so the label is the only way to tell options apart (and to
+      // pick the right one at fill time). Fall back to value when there's no label.
       meta.options = Array.from(
         doc.querySelectorAll<HTMLInputElement>(`input[type="radio"][name="${elementName}"]`)
-      ).map((r) => r.value);
+      ).map((r) => resolveOptionLabel(r, doc) || r.value);
       const groupLabel = resolveGroupLabel(el, doc);
       if (groupLabel) meta.groupLabel = groupLabel;
     }
