@@ -17,7 +17,7 @@ There are two layers:
 ## Prerequisites
 
 - [ ] A **Chrome Web Store developer account** (one-time **$5** registration),
-      signed in as **`Tarika.Birch@govtech.bb`**. Use the org account so the
+      signed in as **`name@govtech.bb`**. Use the org account so the
       "Private" visibility option can target the domain.
       Register at <https://chrome.google.com/webstore/devconsole>.
 - [x] An **`icons` block in `manifest.json`** — done. The 16/32/48/128 PNGs
@@ -64,7 +64,7 @@ Compress-Archive -Path dist\* -DestinationPath form-filler-v1.0.0.zip -Force
 ## 2. Publish privately to the org
 
 1. Open the [Developer Dashboard](https://chrome.google.com/webstore/devconsole)
-   as `Tarika.Birch@govtech.bb`.
+   as `name@govtech.bb`.
 2. **Add new item** → upload `form-filler-v1.0.0.zip`.
 3. Complete the **store listing**: name, description, category, language,
    the 128×128 icon, and at least one screenshot.
