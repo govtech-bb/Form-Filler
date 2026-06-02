@@ -28,10 +28,9 @@
     }
     .logo {
       width: 26px; height: 26px;
-      background: #1f4fe0;
       border-radius: 5px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 15px; font-weight: 700; color: #fff;
+      display: block;
+      object-fit: contain;
     }
     .title { font-size: 16px; font-weight: 700; color: #fff; flex: 1; }
     .view { display: none; }
@@ -104,7 +103,7 @@
   <!-- Main view -->
   <div id="view-main" class="view active">
     <div class="header">
-      <div class="logo">F</div>
+      <img class="logo" src="/icons/icon-128.png" alt="" />
       <span class="title">Form Filler</span>
     </div>
     <div class="body">
