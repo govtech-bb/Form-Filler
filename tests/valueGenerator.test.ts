@@ -104,6 +104,26 @@ describe('generateValue', () => {
     expect(result).toBeNull();
   });
 
+  it('generates a 4-digit calendar year for a "year" text field (start/end year)', () => {
+    // gov-bb education forms have plain text "Start year"/"End year" inputs that
+    // validate "must be a valid year". Without a rule these fell through to the
+    // lorem fallback ("sustineo stabilis vis…") and failed validation.
+    const thisYear = new Date().getFullYear();
+    for (const label of ['Start year', 'End year', 'Year of graduation']) {
+      const result = generateValue(field({ type: 'text', label })) as string;
+      expect(result).toMatch(/^\d{4}$/);
+      const y = Number(result);
+      expect(y).toBeGreaterThanOrEqual(1900);
+      expect(y).toBeLessThanOrEqual(thisYear);
+    }
+  });
+
+  it('does not treat a plural "years" duration field as a calendar year', () => {
+    // "Years of experience" is a count, not a 4-digit year — singular-only match.
+    const result = generateValue(field({ type: 'text', label: 'Years of experience' }));
+    expect(typeof result === 'string' && /^\d{4}$/.test(result)).toBe(false);
+  });
+
   it('generates a valid BB postcode on the first pass (no hint, no pattern)', () => {
     // gov-bb's postcode field exposes no pattern and no extractable hint on the
     // first fill, so the value must be valid from the rule alone — not only after
