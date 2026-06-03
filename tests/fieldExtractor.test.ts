@@ -141,6 +141,27 @@ describe('extractFields', () => {
     expect(fields[0].options).toEqual(['Yes', 'No']);
   });
 
+  it('extracts a Radix button[role=radio] group as one field, skipping the proxy input', () => {
+    const doc = makeDoc(`
+      <fieldset>
+        <legend>Is the certificate for you?</legend>
+        <div role="radiogroup">
+          <button type="button" role="radio" value="yes" id="yes"></button>
+          <input aria-hidden="true" tabindex="-1" type="radio" value="yes" />
+          <label for="yes">Yes</label>
+          <button type="button" role="radio" value="no" id="no"></button>
+          <input aria-hidden="true" tabindex="-1" type="radio" value="no" />
+          <label for="no">No</label>
+        </div>
+      </fieldset>
+    `);
+    const fields = extractFields(doc);
+    const radios = fields.filter((f) => f.type === 'radio');
+    expect(radios).toHaveLength(1);
+    expect(radios[0].options).toEqual(['Yes', 'No']);
+    expect(radios[0].groupLabel).toBe('Is the certificate for you?');
+  });
+
   it('extracts every checkbox in a shared-name group individually', () => {
     const doc = makeDoc(`
       <input type="checkbox" name="interests" value="sports" />

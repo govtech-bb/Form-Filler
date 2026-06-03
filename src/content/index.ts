@@ -17,12 +17,36 @@ export function applyValues(instructions: FillInstruction[]): FillResult {
   let fieldsSkipped = 0;
 
   for (const instruction of instructions) {
-    const el = document.querySelector<
-      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    >(`[data-ff-uid="${instruction.fieldId}"]`);
+    const el = document.querySelector<HTMLElement>(
+      `[data-ff-uid="${instruction.fieldId}"]`
+    );
 
     if (!el) {
       fieldsSkipped++;
+      continue;
+    }
+
+    // Radix-style radio group: the real control is <button role="radio"> (the
+    // adjacent <input type="radio"> is an inert, aria-hidden proxy the framework
+    // ignores). Click the button so the component updates its state.
+    if (el instanceof HTMLButtonElement && el.getAttribute('role') === 'radio') {
+      const want = String(instruction.value);
+      const container =
+        el.closest('[role="radiogroup"]') ?? el.closest('fieldset');
+      const group = container
+        ? Array.from(
+            container.querySelectorAll<HTMLButtonElement>('button[role="radio"]')
+          )
+        : [el];
+      const target =
+        group.find((b) => b.value === want) ??
+        group.find((b) => resolveOptionLabel(b, document) === want) ??
+        group[0] ??
+        el;
+      if (target.getAttribute('aria-checked') !== 'true') {
+        target.click(); // selects this option, fires the framework's click handler
+      }
+      fieldsFilled++;
       continue;
     }
 
