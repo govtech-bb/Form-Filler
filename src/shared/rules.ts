@@ -155,6 +155,14 @@ const RULES: Rule[] = [
         .split('T')[0],
   },
   {
+    // "Start year", "End year", "Year of graduation", "Birth year" — a 4-digit
+    // calendar year. Singular "year" only: plural "years" reads as a duration
+    // ("years of experience"), left to the count/number rules. Always a past year
+    // so it satisfies "must be a valid year" validators that reject the future.
+    patterns: [/\byear\b/],
+    generate: () => String(faker.date.past({ years: 40 }).getFullYear()),
+  },
+  {
     patterns: [/\bgender\b/, /\bsex\b/],
     generate: () => 'Male',
   },
