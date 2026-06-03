@@ -1,10 +1,12 @@
 import { FieldMeta, FieldType } from './types';
 
-function getFieldType(
-  el: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-): FieldType {
+function getFieldType(el: HTMLElement): FieldType {
   if (el instanceof HTMLSelectElement) return 'select';
   if (el instanceof HTMLTextAreaElement) return 'textarea';
+  // Radix-style radio groups render the real control as <button role="radio">.
+  if (el instanceof HTMLButtonElement) {
+    return el.getAttribute('role') === 'radio' ? 'radio' : 'other';
+  }
   const t = (el as HTMLInputElement).type?.toLowerCase() ?? 'text';
   if (t === 'search') return 'text'; // search behaves identically to text for filling
   const valid: FieldType[] = [
@@ -192,6 +194,38 @@ export function resolveOptionLabel(el: HTMLElement, doc: Document): string {
   return '';
 }
 
+/**
+ * The container that scopes a Radix-style radio group — the [role="radiogroup"]
+ * Radix renders on its Root, falling back to an enclosing <fieldset>. Used to
+ * group the <button role="radio"> options (which carry no shared `name`) and to
+ * deduplicate them at extraction time.
+ */
+function radioButtonContainer(el: HTMLElement): Element | null {
+  return el.closest('[role="radiogroup"]') ?? el.closest('fieldset');
+}
+
+/**
+ * All option controls belonging to the same radio group as `el`. Native radios
+ * are grouped by their shared `name`; Radix <button role="radio"> options (which
+ * have no `name`) are grouped by their enclosing radiogroup/fieldset container.
+ */
+export function radioGroupMembers(el: HTMLElement, doc: Document): HTMLElement[] {
+  if (el instanceof HTMLButtonElement) {
+    const container = radioButtonContainer(el);
+    return container
+      ? Array.from(container.querySelectorAll<HTMLButtonElement>('button[role="radio"]'))
+      : [el];
+  }
+  const input = el as HTMLInputElement;
+  return input.name
+    ? Array.from(
+        doc.querySelectorAll<HTMLInputElement>(
+          `input[type="radio"][name="${CSS.escape(input.name)}"]`
+        )
+      )
+    : [input];
+}
+
 let _uidCounter = 0;
 
 type DatePart = 'day' | 'month' | 'year';
@@ -298,28 +332,48 @@ function preprocessDateTriplets(
 export function extractFields(doc: Document = document): FieldMeta[] {
   const selector =
     'input:not([type="hidden"]):not([type="submit"]):not([type="button"])' +
-    ':not([type="reset"]):not([type="image"]):not([type="file"]), select, textarea';
+    ':not([type="reset"]):not([type="image"]):not([type="file"]), select, textarea,' +
+    ' button[role="radio"]';
 
-  const elements = Array.from(
-    doc.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(selector)
-  );
+  const elements = Array.from(doc.querySelectorAll<HTMLElement>(selector));
 
   const dateTriplets = preprocessDateTriplets(doc);
 
   const fields: FieldMeta[] = [];
   const radioGroups = new Set<string>();
+  const radioContainers = new Set<Element>();
 
   for (const el of elements) {
     const type = getFieldType(el);
     if (type === 'other') continue;
 
+    // Skip the inert proxy <input type="radio"> that Radix renders beside each
+    // <button role="radio"> (aria-hidden, pointer-events:none — clicking it does
+    // nothing). The button is the real control and is extracted instead.
+    if (
+      el instanceof HTMLInputElement &&
+      el.type === 'radio' &&
+      el.getAttribute('aria-hidden') === 'true'
+    ) {
+      continue;
+    }
+
     const elementName = el.getAttribute('name') ?? '';
 
-    // Deduplicate radio groups — only the first radio per name is extracted;
-    // applyValues looks up the right radio by value at fill time.
-    if (type === 'radio' && elementName) {
-      if (radioGroups.has(elementName)) continue;
-      radioGroups.add(elementName);
+    // Deduplicate radio groups — only the first option per group is extracted;
+    // applyValues looks up the right option by value at fill time. Native radios
+    // group by shared `name`; Radix button groups (no name) by their container.
+    if (type === 'radio') {
+      if (el instanceof HTMLButtonElement) {
+        const container = radioButtonContainer(el);
+        if (container) {
+          if (radioContainers.has(container)) continue;
+          radioContainers.add(container);
+        }
+      } else if (elementName) {
+        if (radioGroups.has(elementName)) continue;
+        radioGroups.add(elementName);
+      }
     }
 
     // Checkboxes are NOT deduplicated — each checkbox (even within a shared-name
@@ -386,9 +440,9 @@ export function extractFields(doc: Document = document): FieldMeta[] {
       // Prefer each option's label text over its `value`: value-less radios all
       // report "on", so the label is the only way to tell options apart (and to
       // pick the right one at fill time). Fall back to value when there's no label.
-      meta.options = Array.from(
-        doc.querySelectorAll<HTMLInputElement>(`input[type="radio"][name="${CSS.escape(elementName)}"]`)
-      ).map((r) => resolveOptionLabel(r, doc) || r.value);
+      meta.options = radioGroupMembers(el, doc).map(
+        (r) => resolveOptionLabel(r, doc) || (r as HTMLInputElement | HTMLButtonElement).value
+      );
       const groupLabel = resolveGroupLabel(el, doc);
       if (groupLabel) meta.groupLabel = groupLabel;
     }
