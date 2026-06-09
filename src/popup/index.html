@@ -78,6 +78,9 @@
     .field-label { font-size: 13px; color: #d6d7e6; font-weight: 700; margin-bottom: 5px; }
     .field-hint { font-size: 13px; color: #c2c4dc; margin-top: 5px; line-height: 1.45; }
     .shortcut-display { display: flex; gap: 4px; align-items: center; }
+    .shortcut-row { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin-top: 8px; }
+    .os-tag { font-size: 13px; color: #9aa0c8; font-weight: 700; letter-spacing: 0.3px; }
+    .hint-os { color: #9aa0c8; font-size: 13px; }
     .kbd {
       background: #1f1f3a; border: 2px solid #565680;
       border-radius: 4px; padding: 4px 8px;
@@ -108,7 +111,7 @@
     </div>
     <div class="body">
       <button id="btn-fill" class="btn-fill">⚡ Fill All Fields</button>
-      <p class="hint">or press <span class="mod-combo">Ctrl+Shift+F</span></p>
+      <p class="hint">or press <strong>Alt+Shift+F</strong><br><span class="hint-os">⌥&nbsp;Option+Shift+F on macOS</span></p>
       <div id="test-mode-badge" class="test-badge" style="display:none">⚠️ Test validation mode ON</div>
       <div id="status-box" class="status-box">
         <div class="status-label">Last fill</div>
@@ -129,14 +132,19 @@
     <div class="settings-body">
       <div>
         <div class="field-label">Fill shortcut</div>
-        <div class="shortcut-display">
-          <span class="kbd mod-key">Ctrl</span>
-          <span>+</span>
-          <span class="kbd">Shift</span>
-          <span>+</span>
-          <span class="kbd accent">F</span>
+        <div class="shortcut-row">
+          <span class="os-tag">Windows / Linux</span>
+          <span class="shortcut-display">
+            <span class="kbd">Alt</span><span>+</span><span class="kbd">Shift</span><span>+</span><span class="kbd accent">F</span>
+          </span>
         </div>
-        <div class="field-hint" style="margin-top:4px">
+        <div class="shortcut-row">
+          <span class="os-tag">macOS</span>
+          <span class="shortcut-display">
+            <span class="kbd">⌥ Option</span><span>+</span><span class="kbd">Shift</span><span>+</span><span class="kbd accent">F</span>
+          </span>
+        </div>
+        <div class="field-hint" style="margin-top:6px">
           Change at <code>chrome://extensions/shortcuts</code>
         </div>
       </div>
@@ -147,14 +155,19 @@
           <span class="toggle-text">Fill with invalid data</span>
         </label>
         <div class="field-hint">Fills fields with data that should fail validation, cycling a different broken rule each fill.</div>
-        <div class="shortcut-display" style="margin-top:8px">
-          <span class="kbd mod-key">Ctrl</span>
-          <span>+</span>
-          <span class="kbd">Shift</span>
-          <span>+</span>
-          <span class="kbd accent">X</span>
+        <div class="shortcut-row">
+          <span class="os-tag">Windows / Linux</span>
+          <span class="shortcut-display">
+            <span class="kbd">Alt</span><span>+</span><span class="kbd">Shift</span><span>+</span><span class="kbd accent">X</span>
+          </span>
         </div>
-        <div class="field-hint" style="margin-top:4px">
+        <div class="shortcut-row">
+          <span class="os-tag">macOS</span>
+          <span class="shortcut-display">
+            <span class="kbd">⌥ Option</span><span>+</span><span class="kbd">Shift</span><span>+</span><span class="kbd accent">X</span>
+          </span>
+        </div>
+        <div class="field-hint" style="margin-top:6px">
           Toggles this mode on/off. Change at <code>chrome://extensions/shortcuts</code>
         </div>
       </div>
