@@ -45,15 +45,15 @@
   "commands": {
     "fill-form": {
       "suggested_key": {
-        "default": "Ctrl+Shift+F",
-        "mac": "MacCtrl+Shift+F"
+        "default": "Alt+Shift+F",
+        "mac": "Alt+Shift+F"
       },
       "description": "Fill all form fields on the current page"
     },
     "toggle-test-mode": {
       "suggested_key": {
-        "default": "Ctrl+Shift+X",
-        "mac": "MacCtrl+Shift+X"
+        "default": "Alt+Shift+X",
+        "mac": "Alt+Shift+X"
       },
       "description": "Toggle invalid-data test mode on/off"
     }
