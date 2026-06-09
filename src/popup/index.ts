@@ -47,20 +47,10 @@ function showView(id: 'view-main' | 'view-settings') {
   document.getElementById(id)!.classList.add('active');
 }
 
-// On macOS the actual binding is Cmd+Shift+F / Cmd+Shift+X — relabel the popup
-// to match, since the manifest's `mac` suggested_key uses Command.
-function applyPlatformShortcuts() {
-  const ua = navigator as Navigator & { userAgentData?: { platform?: string } };
-  const platform = ua.userAgentData?.platform ?? navigator.platform ?? '';
-  if (!/mac/i.test(platform)) return;
-  document.querySelectorAll('.mod-key').forEach((el) => { el.textContent = 'Cmd'; });
-  document.querySelectorAll('.mod-combo').forEach((el) => {
-    el.textContent = (el.textContent ?? '').replace(/Ctrl/g, 'Cmd');
-  });
-}
-
 async function init() {
-  applyPlatformShortcuts();
+  // The manifest binds Ctrl+Shift+F/X on every platform (the `mac` suggested_key
+  // uses MacCtrl, i.e. the physical Ctrl key), so the popup's "Ctrl" labels are
+  // correct as-is — no platform-specific relabeling needed.
   const response = await sendToBackground({ type: 'GET_SETTINGS' });
   if (response?.type === 'SETTINGS') {
     renderSettings(response.settings);

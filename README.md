@@ -40,8 +40,10 @@ pnpm dev
 
 ## Usage
 
-- Click the **Form Filler** toolbar icon, then **Fill All Fields** — or press **Ctrl+Shift+F** (**Cmd+Shift+F** on macOS).
-- Toggle **Test Validation Mode** from the popup's **Settings** view, or with **Ctrl+Shift+X** (**Cmd+Shift+X** on macOS).
+- Click the **Form Filler** toolbar icon, then **Fill All Fields** — or press **Ctrl+Shift+F** (the same keys on Windows, macOS, and Linux).
+- Toggle **Test Validation Mode** from the popup's **Settings** view, or with **Ctrl+Shift+X**.
+
+> On macOS the binding uses the physical **Ctrl** key (not ⌘). If a shortcut ever does nothing, another extension may have claimed it — reassign it at `chrome://extensions/shortcuts`.
 
 The popup shows the result of the last fill (fields filled and how long ago).
 
