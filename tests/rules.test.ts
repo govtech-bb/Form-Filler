@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
+import { parsePhoneNumberFromString } from 'libphonenumber-js/max';
 import { matchRule, normalizeLabel, isConfirmationLabel } from '../src/shared/rules';
+
+// Mirror the exact check gov.bb runs on phone fields.
+const isValidBB = (value: string): boolean =>
+  parsePhoneNumberFromString(value, 'BB')?.isValid() ?? false;
 
 describe('normalizeLabel', () => {
   it('lowercases text', () => {
@@ -76,18 +81,18 @@ describe('matchRule', () => {
     expect(matchRule('Confirm Password')).toBe('TestPassword123!');
   });
 
-  it('matches "telephone number" to the Barbados shape (1-246-XXX-XXXX)', () => {
-    expect(matchRule('telephone number')).toMatch(/^1-246-\d{3}-\d{4}$/);
+  it('matches "telephone number" to a libphonenumber-valid BB number', () => {
+    expect(isValidBB(matchRule('telephone number')!)).toBe(true);
   });
 
-  it('matches "phone" to the Barbados shape with no extension', () => {
+  it('matches "phone" to a valid BB number with no extension', () => {
     const result = matchRule('phone');
-    expect(result).toMatch(/^1-246-\d{3}-\d{4}$/);
+    expect(isValidBB(result!)).toBe(true);
     expect(result).not.toMatch(/x/i);
   });
 
-  it('matches "mobile" to the Barbados shape', () => {
-    expect(matchRule('mobile')).toMatch(/^1-246-\d{3}-\d{4}$/);
+  it('matches "mobile" to a valid BB number', () => {
+    expect(isValidBB(matchRule('mobile')!)).toBe(true);
   });
 
   it('matches "national id number" to the Barbados shape (6 digits, dash, 4 digits)', () => {
