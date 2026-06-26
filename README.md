@@ -15,7 +15,7 @@ A Chrome (Manifest V3) browser extension that instantly fills form fields on any
 
 ## Install / Build
 
-The project uses **pnpm** (a `pnpm-lock.yaml` and `pnpm-workspace.yaml` are committed). `npm` also works if you prefer it (there is a `package-lock.json`).
+The project uses **pnpm** (a `pnpm-lock.yaml` and `pnpm-workspace.yaml` are committed). pnpm is the single supported package manager — `pnpm-workspace.yaml` also carries the security `overrides` for transitive dev dependencies, which `npm` would not apply.
 
 ```bash
 pnpm install
