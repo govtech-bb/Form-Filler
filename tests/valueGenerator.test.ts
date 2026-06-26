@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
+import { parsePhoneNumberFromString } from 'libphonenumber-js/max';
 import { generateValue, generateForPattern, generateFromHintExample, generateGenericText, parseMinChars, parseNumericBounds } from '../src/shared/valueGenerator';
 import { FieldMeta } from '../src/shared/types';
+
+// Mirror the exact check gov.bb runs on phone fields.
+const isValidBB = (value: string): boolean =>
+  parsePhoneNumberFromString(value, 'BB')?.isValid() ?? false;
 
 function field(overrides: Partial<FieldMeta>): FieldMeta {
   return {
@@ -67,6 +72,21 @@ describe('generateValue', () => {
       options: ['email', 'phone'],
     });
     expect(generateValue(f)).toBe('email');
+  });
+
+  it('routes a type=tel field to a valid BB number even when the label matches no phone keyword', () => {
+    const result = generateValue(field({ type: 'tel', label: 'Best way to reach you' })) as string;
+    expect(isValidBB(result)).toBe(true);
+  });
+
+  it('does not let a tel hint-example produce an unassignable number', () => {
+    // The hint's example is the known-bad 555 number; the old digit-randomising
+    // path would emit a same-shaped (likely invalid) number. The tel branch must
+    // ignore it and return a real assignable number.
+    const result = generateValue(
+      field({ type: 'tel', label: 'Phone', hint: 'for example, 246-555-5555' })
+    ) as string;
+    expect(isValidBB(result)).toBe(true);
   });
 
   it('does not force No on a non-add-another radio group', () => {
@@ -236,6 +256,10 @@ describe('generateGenericText', () => {
 
   it('returns an email for an email-typed field', () => {
     expect(generateGenericText(field({ type: 'email' }))).toMatch(/@/);
+  });
+
+  it('returns null for a tel field so filler text never lands on a phone field', () => {
+    expect(generateGenericText(field({ type: 'tel', label: 'Best way to reach you' }))).toBeNull();
   });
 
   it('respects maxLength', () => {

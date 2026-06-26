@@ -11,6 +11,9 @@ importers:
       '@faker-js/faker':
         specifier: ^8.4.0
         version: 8.4.1
+      libphonenumber-js:
+        specifier: ^1.13.7
+        version: 1.13.7
     devDependencies:
       '@crxjs/vite-plugin':
         specifier: ^2.0.0
@@ -824,6 +827,9 @@ packages:
 
   jsonfile@6.2.1:
     resolution: {integrity: sha512-zwOTdL3rFQ/lRdBnntKVOX6k5cKJwEc1HdilT71BWEu7J41gXIB2MRp+vxduPSwZJPWBxEzv4yH1wYLJGUHX4Q==}
+
+  libphonenumber-js@1.13.7:
+    resolution: {integrity: sha512-rvr3HIMdOgzhz1RFGjftji+wjoAFlzhqCNqJOU/MKTZQ8d9NZxAR/tI+0weDicyoucqVR0U1GCniqHJ0f8aM2A==}
 
   loupe@3.2.1:
     resolution: {integrity: sha512-CdzqowRJCeLU72bHvWqwRBBlLcMEtIvGrlvef74kMnV2AolS9Y8xUv1I0U/MNAWMhBlKIoyuEgoJ0t/bbwHbLQ==}
@@ -1924,6 +1930,8 @@ snapshots:
       universalify: 2.0.1
     optionalDependencies:
       graceful-fs: 4.2.11
+
+  libphonenumber-js@1.13.7: {}
 
   loupe@3.2.1: {}
 

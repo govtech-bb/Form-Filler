@@ -1,5 +1,6 @@
 import { FieldMeta } from './types';
 import { matchRule, normalizeLabel } from './rules';
+import { generateValidBarbadosPhone } from './phone';
 import { faker } from '@faker-js/faker';
 
 /**
@@ -211,6 +212,10 @@ function isLongFormText(field: FieldMeta): boolean {
  */
 export function generateGenericText(field: FieldMeta): string | null {
   if (!TEXT_LIKE_TYPES.includes(field.type)) return null;
+  // A phone field must never get lorem filler — gov.bb blocks it. generateValue
+  // always returns a valid number for type=tel, so this is a defense-in-depth
+  // backstop that keeps filler off phone fields no matter the call path.
+  if (field.type === 'tel') return null;
   if (field.pattern) return null;
 
   switch (field.type) {
@@ -465,6 +470,14 @@ export function generateValue(
   }
 
   switch (field.type) {
+    // A type=tel field is structurally a phone field regardless of its label, so
+    // always emit a real assignable Barbados number. This wins over the default
+    // case's label/hint/pattern logic, which could otherwise route a tel field to
+    // generic filler (no label match) or randomise a hint example's digits into an
+    // unassigned number — both blocked by gov.bb's libphonenumber check.
+    case 'tel':
+      return generateValidBarbadosPhone();
+
     case 'select': {
       if (!field.options || field.options.length === 0) return null;
       return field.options.length > 1 ? field.options[1] : field.options[0];

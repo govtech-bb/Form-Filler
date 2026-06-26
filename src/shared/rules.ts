@@ -1,4 +1,5 @@
 import { faker } from '@faker-js/faker';
+import { generateValidBarbadosPhone } from './phone';
 
 export function normalizeLabel(label: string): string {
   return label
@@ -48,14 +49,12 @@ const RULES: Rule[] = [
     generate: () => faker.internet.email(),
   },
   {
-    // Barbados number: country code 1, area code 246, then a 7-digit local
-    // number (NANP exchange first digit is 2-9). faker.phone.number() defaults
-    // to the en_US locale, emitting US area codes and random extensions
-    // (e.g. "1-689-376-3966 x59137") that fail gov-bb validation.
+    // Barbados number that passes gov.bb's libphonenumber check. A free 2–9
+    // exchange + random digits matches the NANP shape but routinely lands on
+    // unassigned ranges (e.g. the 555 exchange) that isValidNumber('BB') rejects,
+    // so we emit a real assignable number instead. See ./phone.
     patterns: [/\bphone\b/, /\btelephone\b/, /\bmobile\b/, /\btel\b/, /\bcell\b/, /\bcontact[\s\-_]?number\b/],
-    generate: () =>
-      `1-246-${faker.number.int({ min: 2, max: 9 })}` +
-      `${faker.string.numeric(2)}-${faker.string.numeric(4)}`,
+    generate: () => generateValidBarbadosPhone(),
   },
   {
     patterns: [/\baddress\b/, /\bstreet\b/],
