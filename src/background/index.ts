@@ -7,6 +7,7 @@ import {
   sanitizeToAllowedChars,
 } from '../shared/valueGenerator';
 import { isConfirmationLabel, normalizeLabel } from '../shared/rules';
+import { describeInjectionFailure, describeUnsupportedUrl } from '../shared/urlSupport';
 import { pollForFields } from './poll';
 import {
   ExtractFieldsResponse,
@@ -34,12 +35,33 @@ async function getSettings(): Promise<StoredSettings> {
   };
 }
 
-async function ensureContentScript(tabId: number): Promise<void> {
-  // Inject the content script into tabs that were open before the extension loaded.
-  // Read the actual filename from the built manifest so the hash is always correct.
-  const files = chrome.runtime.getManifest().content_scripts?.[0]?.js ?? [];
-  if (files.length === 0) throw new Error('No content script files in manifest');
-  await chrome.scripting.executeScript({ target: { tabId }, files });
+// Built by the lib/IIFE pass in vite.config.ts, not declared in the manifest —
+// keep the two in sync. There is no static content script to read a hashed
+// filename from, because declaring one is what would force a broad match pattern.
+const CONTENT_SCRIPT_FILE = 'content.js';
+
+// The content script is injected on demand, never automatically: `activeTab` grants
+// host access for this tab only, and only because the user just clicked Fill or
+// pressed the shortcut. That gesture-scoped grant is what makes any origin work
+// without asking for host permissions up front.
+async function ensureContentScript(tabId: number, url?: string): Promise<void> {
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: [CONTENT_SCRIPT_FILE],
+    });
+  } catch (e) {
+    // Chrome refuses injection on its privileged pages, and it withholds their
+    // URL too — so this rejection is the only signal for pages the up-front URL
+    // check could not recognise. Report the reason rather than the raw error.
+    throw new Error(describeInjectionFailure(e, url));
+  }
+}
+
+// The popup renders this verbatim, so unwrap the Error rather than stringifying it
+// into "Error: …".
+function errorMessage(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
 }
 
 // Fire-and-forget toast in the page; never let a failed toast break the fill.
@@ -102,14 +124,20 @@ async function runInvalidFill(
   return result;
 }
 
-async function runFill(tabId: number): Promise<FillResult> {
-  // 1. Extract fields — inject content script first if it's not already present
+async function runFill(tabId: number, url?: string): Promise<FillResult> {
+  // The extension is allowed on every site, so the pages that remain off-limits
+  // are Chrome's own. Say so before attempting a fill that cannot work.
+  const unsupported = describeUnsupportedUrl(url);
+  if (unsupported) throw new Error(unsupported);
+
+  // 1. Extract fields. Ask first, inject only on silence: a second injection into
+  // a tab that already has the script would register a duplicate message listener.
   let fields = await extractFromTab(tabId);
 
   if (!fields) {
-    await ensureContentScript(tabId);
-    // The injected loader registers its message listener only after an async
-    // dynamic import resolves, so poll a few times rather than asking just once.
+    await ensureContentScript(tabId, url);
+    // The IIFE bundle registers its listener synchronously, so one attempt should
+    // now suffice — polling stays as cheap insurance against a slow/racing frame.
     fields = await pollForFields(() => extractFromTab(tabId));
     if (!fields) throw new Error('Failed to extract fields — try reloading the tab');
   }
@@ -183,10 +211,12 @@ chrome.commands.onCommand.addListener(async (command) => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id) return;
     try {
-      await runFill(tab.id);
+      await runFill(tab.id, tab.url);
     } catch (e) {
       console.error('[FormFiller] Fill failed:', e);
-      sendToast(tab.id, 'error', 'Fill failed — try reloading the tab');
+      // On a page Chrome blocks there is no content script to receive this, so the
+      // toast is silently dropped — the reason is only visible in the popup.
+      sendToast(tab.id, 'error', errorMessage(e));
     }
     return;
   }
@@ -220,12 +250,13 @@ chrome.runtime.onMessage.addListener(
             return;
           }
           try {
-            const result = await runFill(tab.id);
+            const result = await runFill(tab.id, tab.url);
             sendResponse({ type: 'FILL_COMPLETE', result });
           } catch (e) {
             console.error('[FormFiller] runFill error:', e);
-            sendToast(tab.id, 'error', 'Fill failed — try reloading the tab');
-            sendResponse({ type: 'FILL_ERROR', error: String(e) });
+            const message = errorMessage(e);
+            sendToast(tab.id, 'error', message);
+            sendResponse({ type: 'FILL_ERROR', error: message });
           }
           break;
         }

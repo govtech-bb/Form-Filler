@@ -1,7 +1,21 @@
 # 0003 — Host access restricted to `.gov.bb` and local dev
 
 Date: 2026-06-08
-Status: Accepted
+Status: Superseded by
+[0006 — Host access is `activeTab`, on any site the user is testing](0006-host-access-is-any-site-the-user-is-testing.md)
+(2026-08-31)
+
+> **Superseded.** The allowlist below no longer describes the extension. Form
+> Filler works on any site, because the tool is used on prototypes and
+> vendor-hosted forms that are not on `.gov.bb`. It does so on `activeTab` rather
+> than `<all_urls>`, so this decision's *goal* — no "Broad Host Permissions" flag
+> — still holds; only the allowlist is gone. See decision 0006.
+>
+> What remains valid here is the *mechanism* this decision uncovered: crxjs mirrors
+> a declared content script's matches onto the generated
+> `web_accessible_resources`. That is precisely why 0006 stops declaring the
+> content script in the manifest at all. Any host-access change must still be
+> verified in the built `dist/manifest.json`, not just the source.
 
 ## Principle
 
