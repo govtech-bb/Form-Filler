@@ -69,8 +69,11 @@ Compress-Archive -Path dist\* -DestinationPath form-filler-v1.0.0.zip -Force
 3. Complete the **store listing**: name, description, category, language,
    the 128×128 icon, and at least one screenshot.
 4. Complete **Privacy practices**: declare permission justifications
-   (`activeTab`, `scripting`, `storage`, `tabs`, and the `<all_urls>` host
-   access) and the single-purpose description.
+   (`scripting`, `storage`, and the `<all_urls>` host access) and the
+   single-purpose description. `<all_urls>` triggers the store's **Broad Host
+   Permissions** review — that is expected and accepted; see
+   [decision 0006](decisions/0006-host-access-is-any-site-the-user-is-testing.md)
+   for the justification text to submit.
 5. Under **Visibility**, select **Private**. This restricts install to users
    signed into a `@govtech.bb` account.
 6. **Submit for review.** Private items are reviewed but typically clear

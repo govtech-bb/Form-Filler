@@ -1,7 +1,17 @@
 # 0003 — Host access restricted to `.gov.bb` and local dev
 
 Date: 2026-06-08
-Status: Accepted
+Status: Superseded by
+[0006 — Host access is any site the user is testing](0006-host-access-is-any-site-the-user-is-testing.md)
+(2026-08-31)
+
+> **Superseded.** The allowlist below no longer describes the extension. Form
+> Filler now requests `<all_urls>`, because the tool is used on prototypes and
+> vendor-hosted forms that are not on `.gov.bb`. The Chrome Web Store trade-off
+> this decision avoided is now accepted deliberately — see decision 0006. What
+> remains valid here is the *mechanism*: crxjs mirrors the content script's
+> matches onto the generated `web_accessible_resources`, so any host-access
+> change must be verified in the built `dist/manifest.json`, not just the source.
 
 ## Principle
 
