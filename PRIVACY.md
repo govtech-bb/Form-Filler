@@ -24,14 +24,15 @@ personal information or browsing data.
 ## Permissions
 
 Form Filler requests the minimum permissions needed to fill forms on the page
-you are testing: `scripting`, `storage`, and host access to web pages
-(`<all_urls>`, so it can operate on whichever site you choose to test — there is
-no domain allowlist).
+you are testing: `activeTab`, `scripting` and `storage`. It requests **no
+standing access to any website.**
 
-Host access is broad because the extension cannot know in advance which site you
-will test. It is used only when you ask for a fill, by clicking **Fill All
-Fields** or pressing the keyboard shortcut. Nothing is read from, or sent
-anywhere about, the pages you browse.
+`activeTab` means Chrome grants access to a single tab, whichever site it is on,
+at the moment you ask for a fill — by clicking **Fill All Fields** or pressing the
+keyboard shortcut — and withdraws it when you navigate away. The extension is not
+injected into pages you never invoke it on, it does not run in the background on
+your browsing, and nothing is read from or sent anywhere about the pages you
+visit.
 
 ## Contact
 

@@ -5,9 +5,9 @@
 // the popup is the only place a reason can surface. These helpers turn "it did
 // nothing" into a sentence that says why.
 
-// Schemes `<all_urls>` covers, i.e. the ones a content script can be injected into.
-// `file:` additionally needs the per-extension "Allow access to file URLs" toggle,
-// which only the user can grant — see FILE_ACCESS_HINT.
+// Schemes a content script can be injected into at all. `file:` additionally needs
+// the per-extension "Allow access to file URLs" toggle, which only the user can
+// grant — see FILE_ACCESS_HINT.
 const INJECTABLE_SCHEMES = ['http:', 'https:', 'file:', 'ftp:'];
 
 // Chrome's own surfaces, keyed by scheme. Nothing the extension does can unblock these.

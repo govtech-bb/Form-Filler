@@ -34,9 +34,13 @@ Icons are already set up: the PNGs live in `icons/` and `manifest.json`
 references them from both `icons` and `action.default_icon`. CRXJS copies them
 into `dist/icons/` on build — confirm they're present after `npm run build`.
 
-The content script matches `<all_urls>`, which draws extra review scrutiny.
-This is fine for a form-filler — just state the justification in the listing:
-*"The extension fills form fields on any page the user explicitly triggers it on."*
+There is no `<all_urls>` match to justify: the content script is not declared in
+the manifest at all, and the extension reaches any site through `activeTab`,
+granted per user gesture — chosen specifically to stay out of the store's **Broad
+Host Permissions** review ([decision 0006](decisions/0006-host-access-is-any-site-the-user-is-testing.md)).
+State the single purpose plainly in the listing:
+*"The extension fills form fields with fake test data on the page the user
+explicitly triggers it on."*
 
 ---
 
@@ -69,11 +73,11 @@ Compress-Archive -Path dist\* -DestinationPath form-filler-v1.0.0.zip -Force
 3. Complete the **store listing**: name, description, category, language,
    the 128×128 icon, and at least one screenshot.
 4. Complete **Privacy practices**: declare permission justifications
-   (`scripting`, `storage`, and the `<all_urls>` host access) and the
-   single-purpose description. `<all_urls>` triggers the store's **Broad Host
-   Permissions** review — that is expected and accepted; see
-   [decision 0006](decisions/0006-host-access-is-any-site-the-user-is-testing.md)
-   for the justification text to submit.
+   (`activeTab`, `scripting`, `storage`) and the single-purpose description.
+   There is no host permission to justify — the extension works on any site via
+   `activeTab`, granted per user gesture, specifically so it does **not** trigger
+   the store's **Broad Host Permissions** review. See
+   [decision 0006](decisions/0006-host-access-is-any-site-the-user-is-testing.md).
 5. Under **Visibility**, select **Private**. This restricts install to users
    signed into a `@govtech.bb` account.
 6. **Submit for review.** Private items are reviewed but typically clear

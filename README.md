@@ -11,7 +11,7 @@ A Chrome (Manifest V3) browser extension that instantly fills form fields on any
 - **Confirm-email reuse** — a "confirm/re-enter email" field reuses the email already generated for the matching field instead of a fresh, mismatched one.
 - **Auto-correction on validation error** — after a fill, a `MutationObserver` watches for validation errors and repairs the offending values (e.g. stripping characters a "letters only" rule forbids, or regenerating from the error hint).
 - **Test Validation Mode** — deliberately fills fields with data that should *fail* validation, cycling through one broken rule per fill (invalid format → below minimum → above maximum → out of range → empty) so you can exercise a form's error states.
-- **Works on any site** — prototype hosts, preview URLs, vendor forms, `localhost`, or a local `file://` page. There is no domain allowlist; the extension acts only on the page you invoke it on. The Barbados-flavoured values above are chosen from field *labels*, so they work the same anywhere.
+- **Works on any site** — prototype hosts, preview URLs, vendor forms, `localhost`, or a local `file://` page. There is no domain allowlist, and no standing host permission either: the extension asks for `activeTab`, so Chrome grants it access to a single tab at the moment you click **Fill All Fields** or press the shortcut, and nothing is injected into pages you never invoke it on. The Barbados-flavoured values above are chosen from field *labels*, so they work the same anywhere.
 - **Fully local** — all data is generated on-device with [faker](https://github.com/faker-js/faker). No network requests, no AI service, no API keys.
 
 ## Install / Build
@@ -24,6 +24,15 @@ pnpm build
 ```
 
 The build (Vite + `@crxjs/vite-plugin`) emits the unpacked extension to the Vite build output directory, `dist/`.
+
+It runs in two passes, chained off one command: crxjs builds the popup and service
+worker from `manifest.json`, then a lib/IIFE pass emits `dist/content.js`. The
+content script is deliberately *not* declared in the manifest — the background
+injects it with `chrome.scripting.executeScript` under `activeTab`, which is what
+lets the extension work on any origin without broad host permissions. That requires
+a single self-contained file, so its filename is a contract between
+`vite.config.ts` and `CONTENT_SCRIPT_FILE` in `src/background/index.ts`; keep the
+two in sync. See [decision 0006](docs/decisions/0006-host-access-is-any-site-the-user-is-testing.md).
 
 Then load it into Chrome:
 
@@ -62,6 +71,9 @@ Using the keyboard shortcut on one of these looks like nothing happening: the
 on-page toast is drawn by a content script Chrome won't let us inject. Open the
 popup and press **Fill All Fields** to see the reason.
 
+A form inside a **cross-origin iframe** is also out of reach — `activeTab` grants
+the tab's own origin, not third-party frames.
+
 ## Testing
 
 ```bash
@@ -76,6 +88,8 @@ Unit tests run with [Vitest](https://vitest.dev/) (`vitest run`). Use `pnpm test
 src/
   shared/        Field extraction + value generation (framework-agnostic, unit-tested):
                  rules.ts, valueGenerator.ts, types.ts, urlSupport.ts
+  content/       Injected on demand (not declared in the manifest) — built as a
+                 self-contained dist/content.js by a second Vite pass
   content/       DOM read/write (extract fields, apply values) + on-page toast
   background/    Service-worker orchestration: fill flow, keyboard commands,
                  test-validation mode, validation-error auto-correction

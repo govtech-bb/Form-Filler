@@ -35,13 +35,21 @@ async function getSettings(): Promise<StoredSettings> {
   };
 }
 
+// Built by the lib/IIFE pass in vite.config.ts, not declared in the manifest —
+// keep the two in sync. There is no static content script to read a hashed
+// filename from, because declaring one is what would force a broad match pattern.
+const CONTENT_SCRIPT_FILE = 'content.js';
+
+// The content script is injected on demand, never automatically: `activeTab` grants
+// host access for this tab only, and only because the user just clicked Fill or
+// pressed the shortcut. That gesture-scoped grant is what makes any origin work
+// without asking for host permissions up front.
 async function ensureContentScript(tabId: number, url?: string): Promise<void> {
-  // Inject the content script into tabs that were open before the extension loaded.
-  // Read the actual filename from the built manifest so the hash is always correct.
-  const files = chrome.runtime.getManifest().content_scripts?.[0]?.js ?? [];
-  if (files.length === 0) throw new Error('No content script files in manifest');
   try {
-    await chrome.scripting.executeScript({ target: { tabId }, files });
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: [CONTENT_SCRIPT_FILE],
+    });
   } catch (e) {
     // Chrome refuses injection on its privileged pages, and it withholds their
     // URL too — so this rejection is the only signal for pages the up-front URL
@@ -122,13 +130,14 @@ async function runFill(tabId: number, url?: string): Promise<FillResult> {
   const unsupported = describeUnsupportedUrl(url);
   if (unsupported) throw new Error(unsupported);
 
-  // 1. Extract fields — inject content script first if it's not already present
+  // 1. Extract fields. Ask first, inject only on silence: a second injection into
+  // a tab that already has the script would register a duplicate message listener.
   let fields = await extractFromTab(tabId);
 
   if (!fields) {
     await ensureContentScript(tabId, url);
-    // The injected loader registers its message listener only after an async
-    // dynamic import resolves, so poll a few times rather than asking just once.
+    // The IIFE bundle registers its listener synchronously, so one attempt should
+    // now suffice — polling stays as cheap insurance against a slow/racing frame.
     fields = await pollForFields(() => extractFromTab(tabId));
     if (!fields) throw new Error('Failed to extract fields — try reloading the tab');
   }
