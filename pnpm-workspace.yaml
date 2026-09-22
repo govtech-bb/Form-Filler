@@ -4,6 +4,9 @@ allowBuilds:
 # Security overrides for transitive dev dependencies flagged by Dependabot (issue #5).
 # All dev-scoped — none ship in the extension.
 overrides:
+  # postcss 8.5.15 carries CVE-2026-69153 (fixed 8.5.23) and CVE-2026-73646
+  # (fixed 8.5.18). It arrives under vite; ^ keeps it inside postcss 8.
+  postcss: ^8.5.23
   # vitest 3's @vitest/mocker pulls vite 5.4.21 transitively, which is still in the
   # vulnerable range (<= 6.4.2). Force vite 6.4.3 everywhere so the transitive copy —
   # and the old esbuild 0.21.5 it carries — are gone. vitest 3 supports vite 6.
